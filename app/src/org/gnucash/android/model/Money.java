@@ -465,4 +465,12 @@ public final class Money implements Comparable<Money>{
 		}
 		return result;		
 	}
+
+    /**
+     * Returns a new instance of {@link Money} object with the absolute value of the current object
+     * @return Money object with absolute value of this instance
+     */
+    public Money absolute() {
+        return new Money(mAmount.abs(), mCurrency);
+    }
 }

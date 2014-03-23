@@ -48,7 +48,7 @@ public class ExportTransactionsTest extends
 		mSolo = new Solo(getInstrumentation(), getActivity());	
 		
 		Account account = new Account("Exportable");		
-		Transaction transaction = new Transaction("9.99", "Pizza");		
+		Transaction transaction = new Transaction("Pizza");
 		transaction.setDescription("What up?");
 		transaction.setTime(System.currentTimeMillis());
 		

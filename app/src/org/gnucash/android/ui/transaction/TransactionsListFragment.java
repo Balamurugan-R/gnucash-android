@@ -424,7 +424,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
 //            Account.AccountType mainAccountType = mTransactionsDbAdapter.getAccountType(mainAccountUID);
 
 			//negate any transactions if this account is the origin in double entry
-			String transferAccountUID = cursor.getString(DatabaseAdapter.COLUMN_DOUBLE_ENTRY_ACCOUNT_UID);
+			String transferAccountUID = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID));
 
 			if (transferAccountUID != null
 					&& mTransactionsDbAdapter.isSameAccount(mAccountID, transferAccountUID)){

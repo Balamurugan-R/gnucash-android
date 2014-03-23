@@ -48,17 +48,24 @@ public abstract class DatabaseAdapter {
 	public static final int COLUMN_TIMESTAMP 	= 6;
 	public static final int COLUMN_ACCOUNT_UID 	= 7;
 	public static final int COLUMN_EXPORTED 	= 8;
-	public static final int COLUMN_DOUBLE_ENTRY_ACCOUNT_UID = 9;
+    public static final int COLUMN_CURRENCY_CODE= 9;
     public static final int COLUMN_RECURRENCE_PERIOD = 10;
 	
 	//columns indices specific to accounts
-	public static final int COLUMN_CURRENCY_CODE        = 4;
+	public static final int COLUMN_ACCOUNT_CURRENCY     = 4;
 	public static final int COLUMN_PARENT_ACCOUNT_UID   = 5;
     public static final int COLUMN_PLACEHOLDER          = 6;
     public static final int COLUMN_DEFAULT_TRANSFER_ACCOUNT_UID = 7;
     public static final int COLUMN_COLOR_CODE           = 8;
 	public static final int COLUMN_FAVORITE             = 9;
     public static final int COLUMN_FULL_NAME            = 10;
+
+    //column indices specific to splits
+    public static final int COLUMN_SPLIT_AMOUNT         = 2;
+    public static final int COLUMN_SPLIT_ACCOUNT_UID    = 3;
+    public static final int COLUMN_SPLIT_TRANSX_UID     = 4;
+    public static final int COLUMN_SPLIT_TYPE           = 5;
+    public static final int COLUMN_SPLIT_MEMO           = 6;
 
 	/**
 	 * {@link DatabaseHelper} for creating and opening the database

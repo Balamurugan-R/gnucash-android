@@ -24,6 +24,7 @@ import org.gnucash.android.model.Money;
 import org.gnucash.android.model.Transaction;
 import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.export.qif.QifHelper;
+import org.gnucash.android.model.TransactionType;
 import org.gnucash.android.ui.widget.WidgetConfigurationActivity;
 
 import android.content.BroadcastReceiver;
@@ -63,15 +64,16 @@ public class TransactionRecorder extends BroadcastReceiver {
 		String doubleAccountUID = args.getString(Transaction.EXTRA_DOUBLE_ACCOUNT_UID);
         if (doubleAccountUID == null || doubleAccountUID.length() == 0)
             doubleAccountUID = QifHelper.getImbalanceAccountName(Currency.getInstance(Money.DEFAULT_CURRENCY_CODE));
-		Transaction.TransactionType type = Transaction.TransactionType.valueOf(args.getString(Transaction.EXTRA_TRANSACTION_TYPE));
+		TransactionType type = TransactionType.valueOf(args.getString(Transaction.EXTRA_TRANSACTION_TYPE));
 
+        //FIXME: Fix transaction recording through intents
 		Money amount = new Money(amountBigDecimal, Currency.getInstance(currencyCode));
-		Transaction transaction = new Transaction(amount, name);
+		Transaction transaction = new Transaction(name);
 		transaction.setTime(System.currentTimeMillis());
-		transaction.setDescription(note);	
-		transaction.setAccountUID(accountUID);
-		transaction.setDoubleEntryAccountUID(doubleAccountUID);
-		transaction.setTransactionType(type);
+		transaction.setDescription(note);
+//		transaction.setAccountUID(accountUID);
+//		transaction.setDoubleEntryAccountUID(doubleAccountUID);
+//		transaction.setTransactionType(type);
 
 		TransactionsDbAdapter transacionsDbAdapter = new TransactionsDbAdapter(context);
 		transacionsDbAdapter.addTransaction(transaction);

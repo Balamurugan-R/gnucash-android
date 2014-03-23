@@ -16,18 +16,16 @@
 
 package org.gnucash.android.db;
 
-import java.util.*;
-
-import org.gnucash.android.model.Account;
-import org.gnucash.android.model.Money;
-import org.gnucash.android.model.Account.AccountType;
-import org.gnucash.android.model.Transaction;
-import org.gnucash.android.model.Transaction.TransactionType;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.util.Log;
+import org.gnucash.android.model.Account;
+import org.gnucash.android.model.Account.AccountType;
+import org.gnucash.android.model.Money;
+import org.gnucash.android.model.Transaction;
+
+import java.util.*;
 
 /**
  * Manages persistence of {@link Account}s in the database
@@ -97,20 +95,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
             //update the fully qualified account name
             updateAccount(rowId, DatabaseHelper.KEY_FULL_NAME, getFullyQualifiedAccountName(rowId));
 			for (Transaction t : account.getTransactions()) {
-                //FIXME: This is a hack until actual splits are implemented
-                if (t.getDoubleEntryAccountUID().equals(account.getUID())){
-                    Transaction trx = new Transaction(t,false);
-//                    trx.setAmount(trx.getAmount().negate());
-                    if (trx.getType() == TransactionType.DEBIT) {
-                        trx.setType(TransactionType.CREDIT);
-                    } else {
-                        trx.setType(TransactionType.DEBIT);
-                    }
-
-                    mTransactionsAdapter.addTransaction(trx);
-                }
-                else
-				    mTransactionsAdapter.addTransaction(t);
+		        mTransactionsAdapter.addTransaction(t);
 			}
 		}
 		return rowId;
@@ -250,7 +235,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 		account.setAccountType(AccountType.valueOf(c.getString(DatabaseAdapter.COLUMN_TYPE)));
 		//make sure the account currency is set before setting the transactions
 		//else the transactions end up with a different currency from the account
-		account.setCurrency(Currency.getInstance(c.getString(DatabaseAdapter.COLUMN_CURRENCY_CODE)));
+		account.setCurrency(Currency.getInstance(c.getString(DatabaseAdapter.COLUMN_ACCOUNT_CURRENCY)));
 		account.setTransactions(mTransactionsAdapter.getAllTransactionsForAccount(uid));
         account.setPlaceHolderFlag(c.getInt(DatabaseAdapter.COLUMN_PLACEHOLDER) == 1);
         account.setDefaultTransferAccountUID(c.getString(DatabaseAdapter.COLUMN_DEFAULT_TRANSFER_ACCOUNT_UID));
@@ -547,7 +532,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
             }
         }
 
-        return balance.add(mTransactionsAdapter.getTransactionsSum(accountId));
+        return balance.add( getAccount(accountId).getBalance());
 
 //      properly compute the account balance taking double entry into account
 //      TODO: re-enable this when splits are added
@@ -600,10 +585,10 @@ public class AccountsDbAdapter extends DatabaseAdapter {
         condition.append(DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " IS NULL");
         condition.append(" OR ");
         condition.append(DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " = ");
-        condition.append("'" + getGnuCashRootAccountUID() + "'");
+        condition.append("'").append(getGnuCashRootAccountUID()).append("'");
         condition.append(")");
         condition.append(" AND ");
-        condition.append(DatabaseHelper.KEY_TYPE + " != " + "'" + AccountType.ROOT.name() + "'");
+        condition.append(DatabaseHelper.KEY_TYPE + " != " + "'").append(AccountType.ROOT.name()).append("'");
         return fetchAccounts(condition.toString());
     }
 

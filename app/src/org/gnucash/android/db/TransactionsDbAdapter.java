@@ -19,13 +19,14 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.model.Money;
+import org.gnucash.android.model.Split;
 import org.gnucash.android.model.Transaction;
-import org.gnucash.android.model.Transaction.TransactionType;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ import java.util.List;
  */
 public class TransactionsDbAdapter extends DatabaseAdapter {
 
+    SplitsDbAdapter mSplitsDbAdapter;
 	/**
 	 * Constructor. 
 	 * Calls to the base class to open the database
@@ -47,9 +49,16 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
 	public TransactionsDbAdapter(Context context) {
 		super(context);
+        mSplitsDbAdapter = new SplitsDbAdapter(context);
 	}
-	
-	/**
+
+    @Override
+    public void close() {
+        super.close();
+        mSplitsDbAdapter.close();
+    }
+
+    /**
 	 * Adds an transaction to the database. 
 	 * If a transaction already exists in the database with the same unique ID, 
 	 * then the record will just be updated instead
@@ -59,14 +68,10 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	public long addTransaction(Transaction transaction){
 		ContentValues contentValues = new ContentValues();
 		contentValues.put(DatabaseHelper.KEY_NAME, transaction.getName());
-		contentValues.put(DatabaseHelper.KEY_AMOUNT, transaction.getAmount().toPlainString());
-		contentValues.put(DatabaseHelper.KEY_TYPE, transaction.getTransactionType().name());
 		contentValues.put(DatabaseHelper.KEY_UID, transaction.getUID());
-		contentValues.put(DatabaseHelper.KEY_ACCOUNT_UID, transaction.getAccountUID());
 		contentValues.put(DatabaseHelper.KEY_TIMESTAMP, transaction.getTimeMillis());
 		contentValues.put(DatabaseHelper.KEY_DESCRIPTION, transaction.getDescription());
 		contentValues.put(DatabaseHelper.KEY_EXPORTED, transaction.isExported() ? 1 : 0);
-		contentValues.put(DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID, transaction.getDoubleEntryAccountUID());
 		contentValues.put(DatabaseHelper.KEY_RECURRENCE_PERIOD, transaction.getRecurrencePeriod());
 
 		long rowId = -1;
@@ -78,7 +83,12 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 			Log.d(TAG, "Adding new transaction to db");
 			rowId = mDb.insert(DatabaseHelper.TRANSACTIONS_TABLE_NAME, null, contentValues);
 		}	
-		
+
+        if (rowId > 0){
+            for (Split split : transaction.getSplits()) {
+                mSplitsDbAdapter.addSplit(split);
+            }
+        }
 		return rowId;
 	}
 
@@ -132,15 +142,19 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Cursor holding set of transactions for particular account
 	 */
 	public Cursor fetchAllTransactionsForAccount(String accountUID){
-        //fetch transactions from this account except recurring transactions. Those have their own view
-		Cursor cursor = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				null, 
-				"((" + DatabaseHelper.KEY_ACCOUNT_UID + " = '" + accountUID + "') "
-				+ "OR (" + DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID + " = '" + accountUID + "' ))"
-                + " AND " + DatabaseHelper.KEY_RECURRENCE_PERIOD + " = 0",
-				null, null, null, DatabaseHelper.KEY_TIMESTAMP + " DESC");
+        SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
+        queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
+                + " LEFT OUTER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
+                + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
+                + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
 
-		return cursor;
+        //fetch transactions from this account except recurring transactions. Those have their own view
+        String selection = DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID + " = ?"
+                + " AND " + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_RECURRENCE_PERIOD + " = 0";
+        String[] selectionArgs = new String[]{accountUID};
+        String sortOrder = DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_TIMESTAMP + " DESC";
+
+        return queryBuilder.query(mDb, null, selection, selectionArgs, null, null, sortOrder);
 	}
 
     /**
@@ -179,34 +193,9 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		ArrayList<Transaction> transactionsList = new ArrayList<Transaction>();
 		if (c == null)
 			return transactionsList;
-        if (c.getCount() <= 0) {
-            c.close();
-            return transactionsList;
-        }
-		
+
 		while (c.moveToNext()) {
-			Transaction transaction = buildTransactionInstance(c);
-			String doubleEntryAccountUID = transaction.getDoubleEntryAccountUID();
-
-            //one transaction in this case represents both sides of the split
-			if (doubleEntryAccountUID != null && doubleEntryAccountUID.equals(accountUID)){
-                transaction.setAmount(transaction.getAmount().negate());
-/*
-//use this to properly compute the account balance
-				if (GnuCashApplication.isDoubleEntryEnabled(false)) {
-                    if (transaction.getType() == TransactionType.DEBIT) {
-                        transaction.setType(TransactionType.CREDIT);
-                    } else {
-                        transaction.setType(TransactionType.DEBIT);
-                    }
-                } else {
-                    // Negate double entry transactions for the transfer account
-                    transaction.setAmount(transaction.getAmount().negate());
-                }
-*/
-			}
-
-			transactionsList.add(transaction);
+            transactionsList.add(buildTransactionInstance(c));
 		}
 		c.close();
 		return transactionsList;
@@ -218,24 +207,17 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @param c Cursor pointing to transaction record in database
 	 * @return {@link Transaction} object constructed from database record
 	 */
-	public Transaction buildTransactionInstance(Cursor c){		
-		String accountUID = c.getString(DatabaseAdapter.COLUMN_ACCOUNT_UID);
-		String doubleAccountUID = c.getString(DatabaseAdapter.COLUMN_DOUBLE_ENTRY_ACCOUNT_UID);
-		Currency currency = Currency.getInstance(getCurrencyCode(accountUID));
-		String amount = c.getString(DatabaseAdapter.COLUMN_AMOUNT);
-		Money moneyAmount = new Money(new BigDecimal(amount), currency);
+	public Transaction buildTransactionInstance(Cursor c){
 		String name   = c.getString(DatabaseAdapter.COLUMN_NAME);
-        long recurrencePeriod = c.getLong(DatabaseAdapter.COLUMN_RECURRENCE_PERIOD);
+        long recurrencePeriod = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_RECURRENCE_PERIOD));
 		
-		Transaction transaction = new Transaction(moneyAmount, name);
+		Transaction transaction = new Transaction(name);
 		transaction.setUID(c.getString(DatabaseAdapter.COLUMN_UID));
-		transaction.setAccountUID(accountUID);
 		transaction.setTime(c.getLong(DatabaseAdapter.COLUMN_TIMESTAMP));
 		transaction.setDescription(c.getString(DatabaseAdapter.COLUMN_DESCRIPTION));
 		transaction.setExported(c.getInt(DatabaseAdapter.COLUMN_EXPORTED) == 1);
-		transaction.setDoubleEntryAccountUID(doubleAccountUID);
         transaction.setRecurrencePeriod(recurrencePeriod);
-		transaction.setTransactionType(Transaction.TransactionType.valueOf(c.getString(DatabaseAdapter.COLUMN_TYPE)));
+        transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_CURRENCY_CODE)));
 
 		return transaction;
 	}
@@ -361,7 +343,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Sum of transactions belonging to the account
 	 */
 	public Money getTransactionsSum(long accountId) {
-        //FIXME: Properly compute the balance while considering normal account balance
+        //FIXME: Properly compute the balance for splits
         String accountUID = getAccountUID(accountId);
 
         String querySum = "SELECT TOTAL(" + DatabaseHelper.KEY_AMOUNT

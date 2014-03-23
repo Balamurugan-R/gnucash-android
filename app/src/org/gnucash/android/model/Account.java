@@ -20,11 +20,9 @@ import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifHelper;
-import org.gnucash.android.model.Transaction.TransactionType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -292,21 +290,10 @@ public class Account {
 
 	/**
 	 * Adds a transaction to this account
-	 * <p>The currency of the transaction will be set to the currency of the account
-	 * if they are not the same. The currency value conversion is performed, just 
-	 * a different currency is assigned to the same value amount in the transaction.</p>
-	 * <p>
-	 * If the transaction has no account Unique ID, it will be set to the UID of this account.
-	 * Some transactions already have the account UID and double account UID set. In that case,
-	 * nothing is changed
-	 * </p>
 	 * @param transaction {@link Transaction} to be added to the account
 	 */
 	public void addTransaction(Transaction transaction){
-		//some double transactions may already an account UID. Set only for those with null
-		if (transaction.getAccountUID() == null)
-			transaction.setAccountUID(getUID());
-		transaction.setCurrency(mCurrency);
+		transaction.setCurrencyCode(mCurrency.getCurrencyCode());
 		mTransactionsList.add(transaction);
 	}
 	
@@ -318,11 +305,6 @@ public class Account {
 	 * @param transactionsList List of {@link Transaction}s to be set.
 	 */
 	public void setTransactions(List<Transaction> transactionsList){
-		for (Transaction transaction : transactionsList) {
-			if (transaction.getAccountUID() == null)
-				transaction.setAccountUID(getUID());
-			transaction.setCurrency(mCurrency);
-		}
 		this.mTransactionsList = transactionsList;
 	}
 		
@@ -369,32 +351,9 @@ public class Account {
 	 * @return {@link Money} aggregate amount of all transactions in account.
 	 */
 	public Money getBalance(){
-		Money balance = new Money(new BigDecimal(0), this.mCurrency);
-		for (Transaction transaction : mTransactionsList) {
-            balance = balance.add(transaction.getAmount());
-
-/*
-            //TODO: Re-enable proper computation of balance for double-entries in the future
-            if (GnuCashApplication.isDoubleEntryEnabled(false)) {
-                boolean isDebitAccount = getAccountType().hasDebitNormalBalance();
-                boolean isDebitTransaction = transaction.getType() == TransactionType.DEBIT;
-                if (isDebitAccount) {
-                    if (isDebitTransaction) {
-                        balance = balance.add(transaction.getAmount());
-                    } else {
-                        balance = balance.subtract(transaction.getAmount());
-                    }
-                } else {
-                    if (isDebitTransaction) {
-                        balance = balance.subtract(transaction.getAmount());
-                    } else {
-                        balance = balance.add(transaction.getAmount());
-                    }
-                }
-            } else { //not using double entry
-                balance = balance.add(transaction.getAmount());
-            }
-*/
+		Money balance = Money.createInstance(mCurrency.getCurrencyCode());
+        for (Transaction transaction : mTransactionsList) {
+            balance.add(transaction.getBalance(mUID));
 		}
 		return balance;
 	}
@@ -606,8 +565,8 @@ public class Account {
 		for (Transaction transaction : mTransactionsList) {
 			if (!exportAllTransactions && transaction.isExported())
 				continue;
-			
-			bankTransactionsList.appendChild(transaction.toOfx(doc, mUID));
+            //TODO: reverse this and use only one entry (transaction balance) for OFX
+            transaction.toOfx(doc, bankTransactionsList, mUID);
 		}		
 		//================= END TRANSACTIONS LIST =================================
 					
@@ -627,31 +586,26 @@ public class Account {
      * @return QIF representation of the account information
      */
     public String toQIF(boolean exportAllTransactions) {
-        StringBuffer accountQifBuffer = new StringBuffer();
+        StringBuilder accountQIFBuilder = new StringBuilder();
         final String newLine = "\n";
 
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
         String fullyQualifiedAccountName = accountsDbAdapter.getFullyQualifiedAccountName(mUID);
         accountsDbAdapter.close();
 
-        accountQifBuffer.append(QifHelper.ACCOUNT_HEADER).append(newLine);
-        accountQifBuffer.append(QifHelper.ACCOUNT_NAME_PREFIX).append(fullyQualifiedAccountName).append(newLine);
-        accountQifBuffer.append(QifHelper.ENTRY_TERMINATOR).append(newLine);
+        accountQIFBuilder.append(QifHelper.ACCOUNT_HEADER).append(newLine);
+        accountQIFBuilder.append(QifHelper.ACCOUNT_NAME_PREFIX).append(fullyQualifiedAccountName).append(newLine);
+        accountQIFBuilder.append(QifHelper.ENTRY_TERMINATOR).append(newLine);
 
         String header = QifHelper.getQifHeader(mAccountType);
-        accountQifBuffer.append(header + newLine);
+        accountQIFBuilder.append(header + newLine);
 
         for (Transaction transaction : mTransactionsList) {
-            //ignore those which are loaded as double transactions.
-            // They will be handled as splits
-            if (!transaction.getAccountUID().equals(mUID))
-                continue;
-
             if (!exportAllTransactions && transaction.isExported())
                 continue;
 
-            accountQifBuffer.append(transaction.toQIF() + newLine);
+            accountQIFBuilder.append(transaction.toQIF(mUID) + newLine);
         }
-        return accountQifBuffer.toString();
+        return accountQIFBuilder.toString();
     }
 }

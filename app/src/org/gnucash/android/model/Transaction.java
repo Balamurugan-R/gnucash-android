@@ -16,21 +16,16 @@
 
 package org.gnucash.android.model;
 
-import java.math.BigDecimal;
-import java.util.Currency;
-import java.util.Date;
-import java.util.Locale;
-import java.util.UUID;
-
+import android.content.Intent;
 import org.gnucash.android.app.GnuCashApplication;
-import org.gnucash.android.model.Account.OfxAccountType;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifHelper;
+import org.gnucash.android.model.Account.OfxAccountType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import android.content.Intent;
+import java.util.*;
 
 /**
  * Represents a financial transaction, either credit or debit.
@@ -40,27 +35,22 @@ import android.content.Intent;
  */
 public class Transaction {
 
-    /**
-	 * Type of transaction, a credit or a debit
-	 */
-	public enum TransactionType {DEBIT, CREDIT};
-	
 	/**
-	 * Mime type for transactions in Gnucash. 
+	 * Mime type for transactions in Gnucash.
 	 * Used for recording transactions through intents
 	 */
 	public static final String MIME_TYPE 			= "vnd.android.cursor.item/vnd.org.gnucash.android.transaction";
-	
+
 	/**
 	 * Key for passing the account unique Identifier as an argument through an {@link Intent}
 	 */
 	public static final String EXTRA_ACCOUNT_UID 	= "org.gnucash.android.extra.account_uid";
-	
+
 	/**
 	 * Key for specifying the double entry account
 	 */
 	public static final String EXTRA_DOUBLE_ACCOUNT_UID = "org.gnucash.android.extra.double_account_uid";
-	
+
 	/**
 	 * Key for identifying the amount of the transaction through an Intent
 	 */
@@ -68,58 +58,46 @@ public class Transaction {
 
     /**
      * Extra key for the transaction type.
-     * This value should typically be set by calling {@link Transaction.TransactionType#name()}
+     * This value should typically be set by calling {@link TransactionType#name()}
      */
     public static final String EXTRA_TRANSACTION_TYPE = "org.gnucash.android.extra.transaction_type";
 
+    /**
+     * Currency used by splits in this transaction
+     */
+    private String mCurrencyCode = Money.DEFAULT_CURRENCY_CODE;
+
+    /**
+     * The splits making up this transaction
+     */
+    private List<Split> mSplitList = new ArrayList<Split>();
+
 	/**
-	 * {@link Money} value of this transaction
-	 */
-	private Money mAmount;
-	
-	/**
-	 * Unique identifier of the transaction. 
+	 * Unique identifier of the transaction.
 	 * This is automatically generated when the transaction is created.
 	 */
-	private String mTransactionUID;
-	
+	private String mUID;
+
 	/**
 	 * Name describing the transaction
 	 */
 	private String mName;
-	
+
 	/**
 	 * An extra note giving details about the transaction
 	 */
 	private String mDescription = "";
-	
-	/**
-	 * Unique Identifier of the account to which this transaction belongs
-	 */
-	private String mAccountUID = null;
-	
-	/**
-	 * Unique Identifier of the account which is used for double entry of this transaction
-	 * This value is null by default for transactions not using double entry
-	 */
-	private String mDoubleEntryAccountUID = null;
-	
+
 	/**
 	 * Flag indicating if this transaction has been exported before or not
 	 * The transactions are typically exported as bank statement in the OFX format
 	 */
 	private int mIsExported = 0;
-	
+
 	/**
 	 * Timestamp when this transaction occurred
 	 */
 	private long mTimestamp;
-	
-	/**
-	 * Type of transaction, either credit or debit
-	 * @see TransactionType
-	 */
-	private TransactionType mType = TransactionType.DEBIT;
 
     /**
      * Recurrence period of this transaction.
@@ -129,41 +107,13 @@ public class Transaction {
     private long mRecurrencePeriod = 0;
 
 	/**
-	 * Overloaded constructor. Creates a new transaction instance with the 
-	 * provided data and initializes the rest to default values. 
-	 * @param amount Amount for the transaction
+	 * Overloaded constructor. Creates a new transaction instance with the
+	 * provided data and initializes the rest to default values.
 	 * @param name Name of the transaction
 	 */
-	public Transaction(Money amount, String name) {
-		initDefaults();		
-		setName(name);
-		setAmount(amount); //takes care of setting the type for us
-	}
-
-	/**
-	 * Overloaded constructor. Creates a new transaction instance with the 
-	 * provided data and initializes the rest to default values. 
-	 * @param amount Amount for the transaction
-	 * @param name Name of the transaction
-	 */
-	public Transaction(String amount, String name) {
-		initDefaults();		
-		setName(name);
-		setAmount(amount); //takes care of setting the type for us
-	}
-	
-	/**
-	 * Overloaded constructor. Creates a new transaction instance with the 
-	 * provided data and initializes the rest to default values. 
-	 * @param amount Amount for the transaction
-	 * @param name Name of the transaction
-	 * @param type Type of transaction
-	 */
-	public Transaction(Money amount, String name, TransactionType type){
+	public Transaction(String name) {
 		initDefaults();
-		setAmount(amount);		
-		this.mType = type;
-		this.mName = name;
+		setName(name);
 	}
 
     /**
@@ -178,10 +128,7 @@ public class Transaction {
         initDefaults();
         setName(transaction.getName());
         setDescription(transaction.getDescription());
-        setAmount(transaction.getAmount());
-        setTransactionType(transaction.getTransactionType());
-        setAccountUID(transaction.getAccountUID());
-        setDoubleEntryAccountUID(transaction.getDoubleEntryAccountUID());
+        setSplits(transaction.getSplits());
         setExported(transaction.isExported());
         setTime(transaction.getTimeMillis());
         if (!generateNewUID){
@@ -193,74 +140,148 @@ public class Transaction {
 	 * Initializes the different fields to their default values.
 	 */
 	private void initDefaults(){
-		setAmount(new Money());
 		this.mTimestamp = System.currentTimeMillis();
-		this.mType = TransactionType.DEBIT;
-		mTransactionUID = UUID.randomUUID().toString();
-		
-	}
-	
-	/**
-	 * Set the amount of this transaction
-	 * @param amount Amount of the transaction
-	 */
-	public void setAmount(Money amount) {
-		this.mAmount = new Money(amount);
+		mUID = UUID.randomUUID().toString();
 	}
 
-	/**
-	 * Set the amount of this transaction
-	 * @param amount Amount of the transaction
+    /**
+     * Returns list of splits for this transaction
+     * @return {@link java.util.List} of splits in the transaction
+     */
+    public List<Split> getSplits(){
+        return mSplitList;
+    }
+
+    /**
+     * Returns what kind of transaction this is for the specified account depending on the split for that account.
+     * <br>This is mostly necessary for generating OFX files.
+     * @param accountUID Unique Identifier of the account
+     * @return TransactionType of this transaction
+     */
+    public TransactionType getTransactionTypeForAccount(String accountUID){
+        List<Split> splitList = getSplits(accountUID);
+        TransactionType type;
+
+        Money balance = Money.createInstance(mCurrencyCode);
+        for (Split split : splitList) {
+            balance.add(split.getAmount());
+        }
+
+        return balance.isNegative() ? TransactionType.DEBIT : TransactionType.CREDIT;
+    }
+
+    /**
+     * Returns the list of splits belonging to a specific account
+     * @param accountUID Unique Identifier of the account
+     * @return List of {@link org.gnucash.android.model.Split}s
+     */
+    public List<Split> getSplits(String accountUID){
+        List<Split> splits = new ArrayList<Split>();
+        for (Split split : mSplitList) {
+            if (split.getAccountUID().equals(accountUID)){
+                splits.add(split);
+            }
+        }
+        return splits;
+    }
+
+    /**
+     * Sets the splits for this transaction
+     * @param splitList List of splits for this transaction
+     */
+    public void setSplits(List<Split> splitList){
+        mSplitList = splitList;
+    }
+
+    /**
+     * Add a split to the transaction.
+     * <p>Sets the split UID and currency to that of this transaction</p>
+     * @param split Split for this transaction
+     */
+    public void addSplit(Split split){
+        //sets the currency of the split to the currency of the transaction
+        split.setAmount(split.getAmount().withCurrency(Currency.getInstance(mCurrencyCode)));
+        split.setTransactionUID(mUID);
+        mSplitList.add(split);
+    }
+
+    /**
+     * Returns the balance of this transaction for only those splits which relate to the account
+     * @param accountUID Unique Identifier of the account
+     * @return Money balance of the transaction for the specified account
+     */
+    public Money getBalance(String accountUID){
+        Money balance = Money.createInstance(mCurrencyCode);
+        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
+        Account.AccountType accountType = accountsDbAdapter.getAccountType(accountUID);
+        accountsDbAdapter.close();
+
+        boolean isDebitAccount = accountType.hasDebitNormalBalance();
+        for (Split split : mSplitList) {
+            if (!split.getAccountUID().equals(accountUID))
+                continue;
+
+            boolean isDebitSplit = split.getType() == TransactionType.DEBIT;
+            if (isDebitAccount) {
+                if (isDebitSplit) {
+                    balance = balance.add(split.getAmount());
+                } else {
+                    balance = balance.subtract(split.getAmount());
+                }
+            } else {
+                if (isDebitSplit) {
+                    balance = balance.subtract(split.getAmount());
+                } else {
+                    balance = balance.add(split.getAmount());
+                }
+            }
+
+        }
+        return balance;
+    }
+
+    /**
+     * Returns the currency code of this transaction.
+     * @return ISO 4217 currency code string
+     */
+    public String getCurrencyCode() {
+        return mCurrencyCode;
+    }
+
+    /**
+     * Sets the ISO 4217 currency code used by this transaction
+     * <p>The currency remains in the object model and is not persisted to the database
+     * Transactions always use the currency of their accounts. </p>
+     * @param currencyCode String with ISO 4217 currency code
+     */
+    public void setCurrencyCode(String currencyCode) {
+        this.mCurrencyCode = currencyCode;
+    }
+
+    /**
+     * Returns the {@link java.util.Currency} used by this transaction
+     * @return Currency of the transaction
+     * @see #getCurrencyCode()
+     */
+    public Currency getCurrency(){
+        return Currency.getInstance(this.mCurrencyCode);
+    }
+
+    /**
+	 * Returns the transaction amount for a specific account displayed by the account.
+     * <p>This is specific to accounts because the total balance of every transaction in double entry mode is zero.</p>
+	 * @return Properly formatted string amount for account
 	 */
-	public void setAmount(String amount) {
-		this.mAmount = new Money(amount);
-	}
-	
-	/**
-	 * Sets the amount and currency of the transaction
-	 * @param amount String containing number value of transaction amount
-	 * @param currencyCode ISO 4217 currency code
-	 */
-	public void setAmount(String amount, String currencyCode){
-		this.mAmount = new Money(new BigDecimal(amount),
-								 Currency.getInstance(currencyCode));
+	public Money getFormattedAmount(String accountUID){
+        Money balance = Money.createInstance(mCurrencyCode);
+        for (Split split : mSplitList) {
+            if (split.getAccountUID().equals(accountUID)){
+                balance = balance.add(split.getAmount());
+            }
+        }
+        return balance;
 	}
 
-	/**
-	 * Sets the currency of the transaction
-	 * The currency remains in the object model and is not persisted to the database
-	 * Transactions always use the currency of their accounts
-	 * @param currency {@link Currency} of the transaction value
-	 */
-	public void setCurrency(Currency currency){		
-		mAmount = mAmount.withCurrency(currency);
-	}
-	
-	/**
-	 * Sets the amount of the transaction
-	 * @param amount Amount value of the transaction
-	 * @param currency {@link Currency} of the transaction
-	 */
-	public void setAmount(double amount, Currency currency){
-		this.mAmount = new Money(new BigDecimal(amount), currency);
-	}
-	
-	/**
-	 * Returns the amount involved in this transaction
-	 * @return {@link Money} amount in the transaction
-	 */
-	public Money getAmount() {
-		return mAmount;
-	}
-	
-	/**
-	 * Returns the transaction properly formatted for display
-	 * @return Properly formatted string amount
-	 */
-	public String getFormattedAmount(){		
-		return mAmount.formattedString(Locale.getDefault());		
-	}
-	
 	/**
 	 * Returns the name of the transaction
 	 * @return Name of the transaction
@@ -300,7 +321,7 @@ public class Transaction {
 	public void setTime(Date timestamp){
 		this.mTimestamp = timestamp.getTime();
 	}
-	
+
 	/**
 	 * Sets the time when the transaction occurred
 	 * @param timeInMillis Time in milliseconds
@@ -308,94 +329,40 @@ public class Transaction {
 	public void setTime(long timeInMillis) {
 		this.mTimestamp = timeInMillis;
 	}
-	
+
 	/**
 	 * Returns the time of transaction in milliseconds
-	 * @return Time when transaction occurred in milliseconds 
+	 * @return Time when transaction occurred in milliseconds
 	 */
 	public long getTimeMillis(){
 		return mTimestamp;
 	}
-	
+
 	/**
-	 * Sets the type of transaction
-	 * @param type The transaction type 
-	 * @see TransactionType 
-	 */
-	public void setTransactionType(TransactionType type){
-		this.mType = type;
-	}
-		
-	/**
-	 * Returns the type of transaction
-	 * @return Type of transaction
-	 */
-	public TransactionType getTransactionType(){
-		return this.mType;
-	}
-	
-	/**
-	 * Set Unique Identifier for this transaction
+	 * Set Unique Identifier for this transaction.
+     * <p>Remember that the unique ID is auto-generated when transaction is created.
+     * So this method is only for cases like building an object instance of a persisted transaction.</p>
 	 * @param transactionUID Unique ID string
+     * @see #resetUID()
 	 */
 	public void setUID(String transactionUID) {
-		this.mTransactionUID = transactionUID;
+		this.mUID = transactionUID;
 	}
 
     /**
      * Resets the UID of this transaction to a newly generated one
      */
     public void resetUID(){
-        this.mTransactionUID = UUID.randomUUID().toString();
+        this.mUID = UUID.randomUUID().toString();
     }
 	/**
 	 * Returns unique ID string for transaction
 	 * @return String with Unique ID of transaction
 	 */
 	public String getUID() {
-		return mTransactionUID;
+		return mUID;
 	}
 
-	/**
-	 * Returns the Unique Identifier of account with which this transaction is double entered
-	 * @return Unique ID of transfer account or <code>null</code> if it is not a double transaction
-	 */
-	public String getDoubleEntryAccountUID() {
-		return mDoubleEntryAccountUID;
-	}
-
-	/**
-	 * Sets the account UID with which to double enter this transaction
-	 * @param doubleEntryAccountUID Unique Identifier to set
-	 */
-	public void setDoubleEntryAccountUID(String doubleEntryAccountUID) {
-		this.mDoubleEntryAccountUID = doubleEntryAccountUID;
-	}
-
-	/**
-	 * Returns type of this transaction
-	 * @return Type of this transaction
-	 */
-	public TransactionType getType() {
-		return mType;
-	}
-
-	/**
-	 * Sets the type of this transaction
-	 * @param Type of this transaction
-	 */
-	public void setType(TransactionType type) {
-		mType = type;
-	}
-
-	/**
-	 * Returns UID of account to which this transaction belongs
-	 * @return the UID of the account to which this transaction belongs
-	 */
-	public String getAccountUID() {
-		return mAccountUID;
-	}
-	
 	/**
 	 * Sets the exported flag on the transaction
 	 * @param isExported <code>true</code> if the transaction has been exported, <code>false</code> otherwise
@@ -403,21 +370,13 @@ public class Transaction {
 	public void setExported(boolean isExported){
 		mIsExported = isExported ? 1 : 0;
 	}
-	
+
 	/**
 	 * Returns <code>true</code> if the transaction has been exported, <code>false</code> otherwise
 	 * @return <code>true</code> if the transaction has been exported, <code>false</code> otherwise
 	 */
 	public boolean isExported(){
 		return mIsExported == 1;
-	}
-	
-	/**
-	 * Set the account UID of the account to which this transaction belongs
-	 * @param accountUID the UID of the account which owns this transaction
-	 */
-	public void setAccountUID(String accountUID) {
-		this.mAccountUID = accountUID;
 	}
 
     /**
@@ -437,101 +396,105 @@ public class Transaction {
     }
 
     /**
-	 * Converts transaction to XML DOM corresponding to OFX Statement transaction and 
+	 * Converts transaction to XML DOM corresponding to OFX Statement transaction and
 	 * returns the element node for the transaction.
 	 * The Unique ID of the account is needed in order to properly export double entry transactions
 	 * @param doc XML document to which transaction should be added
-	 * @param accountUID Unique Identifier of the account which called the method.
-	 * @return Element in DOM corresponding to transaction
+	 * @param parentElement The element to which to add this transactions
+     *@param accountUID Unique Identifier of the account which called the method.  @return Element in DOM corresponding to transaction
 	 */
-	public Element toOfx(Document doc, String accountUID){		
-		Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
-		Element type = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
-		type.appendChild(doc.createTextNode(mType.toString()));
-		transactionNode.appendChild(type);
+	public void toOfx(Document doc, Element parentElement, String accountUID){
+        //FIXME: Since splits are not supported by OFX, just use the transaction balance
+        for (Split split : getSplits(accountUID)) {
+            Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
+            Element type = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
+            type.appendChild(doc.createTextNode(getTransactionTypeForAccount(accountUID).toString()));
+            transactionNode.appendChild(type);
 
-		Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
-		datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
-		transactionNode.appendChild(datePosted);
-		
-		Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
-		dateUser.appendChild(doc.createTextNode(
-				OfxHelper.getOfxFormattedTime(mTimestamp)));
-		transactionNode.appendChild(dateUser);
-		
-		Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
-		amount.appendChild(doc.createTextNode(mAmount.toPlainString()));
-		transactionNode.appendChild(amount);
-		
-		Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
-		transID.appendChild(doc.createTextNode(mTransactionUID));
-		transactionNode.appendChild(transID);
-		
-		Element name = doc.createElement(OfxHelper.TAG_NAME);
-		name.appendChild(doc.createTextNode(mName));
-		transactionNode.appendChild(name);
-		
-		if (mDescription != null && mDescription.length() > 0){
-			Element memo = doc.createElement(OfxHelper.TAG_MEMO);
-			memo.appendChild(doc.createTextNode(mDescription));
-			transactionNode.appendChild(memo);
-		}
-		
-		if (mDoubleEntryAccountUID != null && mDoubleEntryAccountUID.length() > 0){
-			Element bankId = doc.createElement(OfxHelper.TAG_BANK_ID);
-			bankId.appendChild(doc.createTextNode(OfxHelper.APP_ID));
-			
-			//select the proper account as the double account
-			String doubleAccountUID = mDoubleEntryAccountUID.equals(accountUID) ? mAccountUID : mDoubleEntryAccountUID;
-			
-			Element acctId = doc.createElement(OfxHelper.TAG_ACCOUNT_ID);
-			acctId.appendChild(doc.createTextNode(doubleAccountUID));
-			
-			Element accttype = doc.createElement(OfxHelper.TAG_ACCOUNT_TYPE);
-			AccountsDbAdapter acctDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
-			OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(doubleAccountUID));
-			accttype.appendChild(doc.createTextNode(ofxAccountType.toString()));
-			acctDbAdapter.close();
-			
-			Element bankAccountTo = doc.createElement(OfxHelper.TAG_BANK_ACCOUNT_TO);
-			bankAccountTo.appendChild(bankId);
-			bankAccountTo.appendChild(acctId);
-			bankAccountTo.appendChild(accttype);
-			
-			transactionNode.appendChild(bankAccountTo);
-		}
-		
-		return transactionNode;
+            Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
+            datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
+            transactionNode.appendChild(datePosted);
+
+            Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
+            dateUser.appendChild(doc.createTextNode(
+                    OfxHelper.getOfxFormattedTime(mTimestamp)));
+            transactionNode.appendChild(dateUser);
+
+            Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
+            amount.appendChild(doc.createTextNode(getFormattedAmount(accountUID).formattedString(Locale.US)));
+            transactionNode.appendChild(amount);
+
+            Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
+            transID.appendChild(doc.createTextNode(mUID));
+            transactionNode.appendChild(transID);
+
+            Element name = doc.createElement(OfxHelper.TAG_NAME);
+            name.appendChild(doc.createTextNode(mName));
+            transactionNode.appendChild(name);
+
+            if (split.getMemo() != null && split.getMemo().length() > 0) {
+                Element memo = doc.createElement(OfxHelper.TAG_MEMO);
+                memo.appendChild(doc.createTextNode(split.getMemo()));
+                transactionNode.appendChild(memo);
+            }
+
+            Element bankId = doc.createElement(OfxHelper.TAG_BANK_ID);
+            bankId.appendChild(doc.createTextNode(OfxHelper.APP_ID));
+
+            Element acctId = doc.createElement(OfxHelper.TAG_ACCOUNT_ID);
+            acctId.appendChild(doc.createTextNode(split.getAccountUID()));
+
+            Element accttype = doc.createElement(OfxHelper.TAG_ACCOUNT_TYPE);
+            AccountsDbAdapter acctDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
+            OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(split.getAccountUID()));
+            accttype.appendChild(doc.createTextNode(ofxAccountType.toString()));
+            acctDbAdapter.close();
+
+            Element bankAccountTo = doc.createElement(OfxHelper.TAG_BANK_ACCOUNT_TO);
+            bankAccountTo.appendChild(bankId);
+            bankAccountTo.appendChild(acctId);
+            bankAccountTo.appendChild(accttype);
+
+            transactionNode.appendChild(bankAccountTo);
+
+            parentElement.appendChild(transactionNode);
+        }
 	}
 
     /**
      * Builds a QIF entry representing this transaction
      * @return String QIF representation of this transaction
+     * @param accountUID Unique Identifier of the account from which method was called
      */
-    public String toQIF(){
+    public String toQIF(String accountUID){
         final String newLine = "\n";
 
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
 
         //all transactions are double transactions
-        String splitAccountFullName = QifHelper.getImbalanceAccountName(mAmount.getCurrency());
-        if (mDoubleEntryAccountUID != null && mDoubleEntryAccountUID.length() > 0){
-            splitAccountFullName = accountsDbAdapter.getFullyQualifiedAccountName(mDoubleEntryAccountUID);
-        }
+        String imbalanceAccountName = QifHelper.getImbalanceAccountName(Currency.getInstance(mCurrencyCode));
 
-        StringBuilder transactionQifBuffer = new StringBuilder();
-        transactionQifBuffer.append(QifHelper.DATE_PREFIX).append(QifHelper.formatDate(mTimestamp)).append(newLine);
-        transactionQifBuffer.append(QifHelper.MEMO_PREFIX).append(mName).append(newLine);
+        StringBuilder transactionQIFBuilder = new StringBuilder();
+        for (Split split : getSplits(accountUID)) {
 
-        transactionQifBuffer.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(splitAccountFullName).append(newLine);
-        if (mDescription != null && mDescription.length() > 0){
-            transactionQifBuffer.append(QifHelper.SPLIT_MEMO_PREFIX).append(mDescription).append(newLine);
+            transactionQIFBuilder.append(QifHelper.DATE_PREFIX).append(QifHelper.formatDate(mTimestamp)).append(newLine);
+            transactionQIFBuilder.append(QifHelper.MEMO_PREFIX).append(mName).append(newLine);
+
+            String accountName = imbalanceAccountName;
+            if (split.getAccountUID() != null){
+                accountName = accountsDbAdapter.getFullyQualifiedAccountName(split.getAccountUID());
+            }
+            transactionQIFBuilder.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(accountName).append(newLine);
+
+            if (mDescription != null && mDescription.length() > 0){
+                transactionQIFBuilder.append(QifHelper.SPLIT_MEMO_PREFIX).append(mDescription).append(newLine);
+            }
+            transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(split.getAmount().asString()).append(newLine);
         }
-        transactionQifBuffer.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(mAmount.asString()).append(newLine);
-        transactionQifBuffer.append(QifHelper.ENTRY_TERMINATOR).append(newLine);
+        transactionQIFBuilder.append(QifHelper.ENTRY_TERMINATOR).append(newLine);
 
         accountsDbAdapter.close();
-        return transactionQifBuffer.toString();
+        return transactionQIFBuilder.toString();
     }
 
     /**
@@ -541,15 +504,17 @@ public class Transaction {
      * @return Intent with transaction details as extras
      */
     public static Intent createIntent(Transaction transaction){
+        //TODO: Redesign intents for working with GnuCash. Maybe maintain backwards compat?? Yes, recurring transaction!
+
         Intent intent = new Intent(Intent.ACTION_INSERT);
         intent.setType(Transaction.MIME_TYPE);
         intent.putExtra(Intent.EXTRA_TITLE, transaction.getName());
         intent.putExtra(Intent.EXTRA_TEXT, transaction.getDescription());
-        intent.putExtra(EXTRA_AMOUNT, transaction.getAmount().asBigDecimal());
-        intent.putExtra(EXTRA_ACCOUNT_UID, transaction.getAccountUID());
-        intent.putExtra(EXTRA_DOUBLE_ACCOUNT_UID, transaction.getDoubleEntryAccountUID());
-        intent.putExtra(Account.EXTRA_CURRENCY_CODE, transaction.getAmount().getCurrency().getCurrencyCode());
-        intent.putExtra(EXTRA_TRANSACTION_TYPE, transaction.getTransactionType().name());
+//        intent.putExtra(EXTRA_AMOUNT, transaction.getAmount().asBigDecimal());
+//        intent.putExtra(EXTRA_ACCOUNT_UID, transaction.getAccountUID());
+//        intent.putExtra(EXTRA_DOUBLE_ACCOUNT_UID, transaction.getDoubleEntryAccountUID());
+//        intent.putExtra(Account.EXTRA_CURRENCY_CODE, transaction.getAmount().getCurrency().getCurrencyCode());
+//        intent.putExtra(EXTRA_TRANSACTION_TYPE, transaction.getTransactionType().name());
         return intent;
     }
 

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copyright (c) 2014 Ngewi Fet <ngewif@gmail.com>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingLeft="@dimen/dialog_padding"
+                android:paddingRight="@dimen/dialog_padding"
+                android:paddingTop="@dimen/dialog_padding">
+
+    <LinearLayout android:id="@+id/split_list_layout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_above="@+id/footer"
+                android:orientation="vertical">
+
+    </LinearLayout>
+
+    <include layout="@layout/horizontal_line"
+             android:layout_width="match_parent"
+             android:layout_height="1dp"
+             android:layout_above="@id/footer"/>
+
+    <include layout="@layout/default_buttons"
+             android:id="@+id/default_buttons"
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:layout_alignParentBottom="true"/>
+
+    <TableLayout android:id="@+id/footer"
+                 android:layout_width="match_parent"
+                 android:layout_height="wrap_content"
+                 android:layout_above="@id/default_buttons">
+        <TableRow>
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    style="@style/ListItemText"
+                    android:text="Split sum:"/>
+
+            <TextView android:id="@+id/splits_sum"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      style="@style/ListItemText"
+                      android:gravity="right"
+                      android:text="$1000"/>
+        </TableRow>
+        <TableRow>
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    style="@style/ListItemText"
+                    android:text="Unassigned:"/>
+
+            <TextView android:id="@+id/unassigned_balance"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      style="@style/ListItemText"
+                      android:gravity="right"
+                      android:text="$200"/>
+        </TableRow>
+        <TableRow>
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    style="@style/ListItemText"
+                    android:text="Total Amount:"/>
+
+            <TextView android:id="@+id/transaction_total"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:layout_marginLeft="@dimen/dialog_padding"
+                      style="@style/ListItemText"
+                      android:gravity="right"
+                      android:text="$1299"/>
+        </TableRow>
+
+        <Button android:id="@+id/btn_add_split"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/content_new_holo_light"
+                android:text="Add split"/>
+
+    </TableLayout>
+</RelativeLayout>
