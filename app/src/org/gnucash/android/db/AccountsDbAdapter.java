@@ -19,6 +19,7 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.model.Account.AccountType;
@@ -519,7 +520,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
     public Money getAccountBalance(long accountId){
         String currencyCode = getCurrencyCode(accountId);
         currencyCode = currencyCode == null ? Money.DEFAULT_CURRENCY_CODE : currencyCode;
-        Money balance = Money.createInstance(currencyCode);
+        Money balance = Money.createZeroInstance(currencyCode);
 
         List<Long> subAccounts = getSubAccountIds(accountId);
         for (long id : subAccounts){
@@ -597,9 +598,22 @@ public class AccountsDbAdapter extends DatabaseAdapter {
      * @return Cursor to recently used accounts
      */
     public Cursor fetchRecentAccounts(int numberOfRecents){
-        Cursor recentTxCursor = mDb.query(true, DatabaseHelper.TRANSACTIONS_TABLE_NAME,
+        //TODO: check if this works properly
+        SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
+        queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
+                + " LEFT OUTER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
+                + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
+                + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
+
+        String sortOrder = DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_TIMESTAMP + " DESC";
+        Map<String, String> projectionMap = new HashMap<String, String>();
+        projectionMap.put(DatabaseHelper.KEY_ACCOUNT_UID, DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID);
+        queryBuilder.setProjectionMap(projectionMap);
+        Cursor recentTxCursor =  queryBuilder.query(mDb,
                 new String[]{DatabaseHelper.KEY_ACCOUNT_UID},
-                null, null, null, null, DatabaseHelper.KEY_TIMESTAMP + " DESC", Integer.toString(numberOfRecents));
+                null, null, null, null, sortOrder, Integer.toString(numberOfRecents));
+
+
         StringBuilder recentAccountUIDs = new StringBuilder("(");
         while (recentTxCursor.moveToNext()){
             String uid = recentTxCursor.getString(recentTxCursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID));

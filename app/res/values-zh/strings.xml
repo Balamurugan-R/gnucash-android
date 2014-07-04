@@ -393,4 +393,5 @@
     </string-array>
     <string name="title_scheduled_transactions">计划的交易</string>
     <string name="title_select_export_destination">Select destination for export</string>
+    <string name="hint_split_memo">Memo</string>
 </resources>

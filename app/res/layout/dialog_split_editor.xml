@@ -22,13 +22,17 @@ limitations under the License.
                 android:paddingRight="@dimen/dialog_padding"
                 android:paddingTop="@dimen/dialog_padding">
 
-    <LinearLayout android:id="@+id/split_list_layout"
-                android:layout_width="match_parent"
+    <ScrollView android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_above="@+id/footer"
-                android:orientation="vertical">
+                android:layout_above="@+id/footer">
+        <LinearLayout android:id="@+id/split_list_layout"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical">
+            <!-- Split edit views will be added here at runtime-->
+        </LinearLayout>
+    </ScrollView>
 
-    </LinearLayout>
 
     <include layout="@layout/horizontal_line"
              android:layout_width="match_parent"
@@ -49,37 +53,40 @@ limitations under the License.
             <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    style="@style/ListItemText"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:gravity="center_vertical"
                     android:text="Split sum:"/>
 
             <TextView android:id="@+id/splits_sum"
                       android:layout_width="0dp"
                       android:layout_height="match_parent"
                       android:layout_weight="1"
-                      style="@style/ListItemText"
-                      android:gravity="right"
+                      android:textAppearance="?android:attr/textAppearanceSmall"
+                      android:gravity="right|center_vertical"
                       android:text="$1000"/>
         </TableRow>
         <TableRow>
             <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    style="@style/ListItemText"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:gravity="center_vertical"
                     android:text="Unassigned:"/>
 
             <TextView android:id="@+id/unassigned_balance"
                       android:layout_width="0dp"
                       android:layout_height="match_parent"
                       android:layout_weight="1"
-                      style="@style/ListItemText"
-                      android:gravity="right"
+                      android:textAppearance="?android:attr/textAppearanceSmall"
+                      android:gravity="right|center_vertical"
                       android:text="$200"/>
         </TableRow>
         <TableRow>
             <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    style="@style/ListItemText"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:gravity="center_vertical"
                     android:text="Total Amount:"/>
 
             <TextView android:id="@+id/transaction_total"
@@ -87,8 +94,8 @@ limitations under the License.
                       android:layout_height="match_parent"
                       android:layout_weight="1"
                       android:layout_marginLeft="@dimen/dialog_padding"
-                      style="@style/ListItemText"
-                      android:gravity="right"
+                      android:textAppearance="?android:attr/textAppearanceSmall"
+                      android:gravity="right|center_vertical"
                       android:text="$1299"/>
         </TableRow>
 

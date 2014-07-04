@@ -30,11 +30,12 @@ import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseHelper;
 import org.gnucash.android.db.SplitsDbAdapter;
-import org.gnucash.android.db.TransactionsDbAdapter;
+import org.gnucash.android.model.Account;
 import org.gnucash.android.model.Money;
 import org.gnucash.android.model.Split;
-import org.gnucash.android.model.Transaction;
+import org.gnucash.android.model.TransactionType;
 import org.gnucash.android.ui.UxArgument;
+import org.gnucash.android.ui.util.AmountInputFormatter;
 import org.gnucash.android.ui.transaction.TransactionFormFragment;
 import org.gnucash.android.ui.transaction.TransactionsActivity;
 import org.gnucash.android.util.QualifiedAccountNameCursorAdapter;
@@ -61,14 +62,15 @@ public class SplitEditorDialogFragment extends DialogFragment {
 
     private long mTransactionId;
     private AccountsDbAdapter mAccountsDbAdapter;
-    private TransactionsDbAdapter mTransactionsDbAdapter;
     private SplitsDbAdapter mSplitsDbAdapter;
     private Cursor mCursor;
     private SimpleCursorAdapter mCursorAdapter;
     private List<View> mSplitItemViewList;
     private long mAccountId;
+    private String mAccountUID;
 
     private BalanceTextWatcher mBalanceUpdater = new BalanceTextWatcher();
+    private BigDecimal mBaseAmount = BigDecimal.ZERO;
 
     /**
      * Create and return a new instance of the fragment with the appropriate paramenters
@@ -88,12 +90,11 @@ public class SplitEditorDialogFragment extends DialogFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.dialog_split_editor, container, false);
-
         mSplitsLinearLayout = (LinearLayout) view.findViewById(R.id.split_list_layout);
 
-        mAssignedSplitsTextView = (TextView) view.findViewById(R.id.splits_sum);
-        mUnassignedAmountTextView = (TextView) view.findViewById(R.id.unassigned_balance);
-        mTransactionAmount  = (TextView) view.findViewById(R.id.transaction_total);
+        mAssignedSplitsTextView     = (TextView) view.findViewById(R.id.splits_sum);
+        mUnassignedAmountTextView   = (TextView) view.findViewById(R.id.unassigned_balance);
+        mTransactionAmount          = (TextView) view.findViewById(R.id.transaction_total);
 
         mAddSplit   = (Button) view.findViewById(R.id.btn_add_split);
         mSaveButton = (Button) view.findViewById(R.id.btn_save);
@@ -115,42 +116,62 @@ public class SplitEditorDialogFragment extends DialogFragment {
         mSplitsDbAdapter = new SplitsDbAdapter(getActivity());
 
         if (mTransactionId <= 0) {
-            addSplitView();
+            //we are editing splits for a new transaction.
+            // But the user may have already created some splits before. Let's check
+            List<Split> splitList = ((TransactionFormFragment)getTargetFragment()).getSplitList();
+            if (!splitList.isEmpty()) {
+                //aha! there are some splits. Let's load those instead
+                loadSplitViews(splitList);
+            } else {
+                final Currency currency = Currency.getInstance(mAccountsDbAdapter.getCurrencyCode(mAccountUID));
+                Split split = new Split(new Money(mBaseAmount, currency), mAccountUID);
+                split.setPrimary(true);
+                addSplitView(split);
+            }
         } else {
             List<Split> splitList = mSplitsDbAdapter.getSplitsForTransaction(mTransactionId);
-            LayoutInflater layoutInflater = getActivity().getLayoutInflater();
-
-            for (Split split : splitList) {
-                View splitView = layoutInflater.inflate(R.layout.item_split_entry, mSplitsLinearLayout, false);
-                mSplitsLinearLayout.addView(splitView);
-                bindSplitView(splitView, split);
-                mSplitItemViewList.add(splitView);
-            }
+            loadSplitViews(splitList);
         }
 
         setListeners();
         updateTotal();
     }
 
-    private void addSplitView(){
+    private void loadSplitViews(List<Split> splitList) {
+        for (Split split : splitList) {
+            if (split.getAccountUID().equals(mAccountUID))
+                split.setPrimary(true);
+            addSplitView(split);
+        }
+    }
+
+    /**
+     * Add a split view and initialize it with <code>split</code>
+     * @param split Split to initialize the contents to
+     * @return Returns the split view which was added
+     */
+    private View addSplitView(Split split){
         LayoutInflater layoutInflater = getActivity().getLayoutInflater();
         View splitView = layoutInflater.inflate(R.layout.item_split_entry, mSplitsLinearLayout, false);
-        mSplitsLinearLayout.addView(splitView);
-        bindSplitView(splitView, null);
+        mSplitsLinearLayout.addView(splitView,0);
+        bindSplitView(splitView, split);
         mSplitItemViewList.add(splitView);
+        return splitView;
     }
 
     /**
      * Extracts arguments passed to the view and initializes necessary adapters and cursors
      */
     private void initArgs() {
-        Bundle args = getArguments();
-        mTransactionId = args.getLong(UxArgument.SELECTED_TRANSACTION_ID);
-        mAccountId = ((TransactionsActivity)getActivity()).getCurrentAccountID();
-        mTransactionsDbAdapter = new TransactionsDbAdapter(getActivity());
-
         mAccountsDbAdapter = new AccountsDbAdapter(getActivity());
-        String conditions = "(" + DatabaseHelper.KEY_ROW_ID + " != " + mAccountId + " AND "
+
+        Bundle args     = getArguments();
+        mTransactionId  = args.getLong(UxArgument.SELECTED_TRANSACTION_ID);
+        mAccountId      = ((TransactionsActivity)getActivity()).getCurrentAccountID();
+        mAccountUID     = mAccountsDbAdapter.getAccountUID(mAccountId);
+        mBaseAmount     = new BigDecimal(args.getString(UxArgument.AMOUNT_STRING));
+
+        String conditions = "(" //+ DatabaseHelper.KEY_ROW_ID + " != " + mAccountId + " AND "
                 + DatabaseHelper.KEY_CURRENCY_CODE + " = '" + mAccountsDbAdapter.getCurrencyCode(mAccountId)
                 + "' AND " + DatabaseHelper.KEY_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
                 + "' AND " + DatabaseHelper.KEY_PLACEHOLDER + " = 0"
@@ -165,13 +186,13 @@ public class SplitEditorDialogFragment extends DialogFragment {
      */
     private void bindSplitView(final View splitView, Split split){
         EditText splitMemoEditText              = (EditText)    splitView.findViewById(R.id.input_split_memo);
-        final EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.split_amount);
+        final EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.input_split_amount);
         final ToggleButton splitTypeButton      = (ToggleButton) splitView.findViewById(R.id.btn_split_type);
         ImageButton removeSplitButton           = (ImageButton) splitView.findViewById(R.id.btn_remove_split);
-        Spinner accountsSpinner                 = (Spinner)     splitView.findViewById(R.id.input_split_account_spinner);
+        Spinner accountsSpinner                 = (Spinner)     splitView.findViewById(R.id.input_accounts_spinner);
         final TextView splitCurrencyTextView    = (TextView)    splitView.findViewById(R.id.split_currency_symbol);
 
-        splitAmountEditText.addTextChangedListener(new TransactionFormFragment.AmountInputFormatter(splitAmountEditText));
+        splitAmountEditText.addTextChangedListener(new AmountInputFormatter(splitAmountEditText,splitTypeButton));
         splitAmountEditText.addTextChangedListener(mBalanceUpdater);
 
         removeSplitButton.setOnClickListener(new View.OnClickListener() {
@@ -202,19 +223,42 @@ public class SplitEditorDialogFragment extends DialogFragment {
                 }
                 String amountText = splitAmountEditText.getText().toString();
                 if (amountText.length() > 0){
-                    Money money = new Money(TransactionFormFragment.stripCurrencyFormatting(amountText)).divide(100).negate();
-                    splitAmountEditText.setText(money.toPlainString()); //trigger an edit to update the number sign
+                    String changedSignText = TransactionFormFragment.parseInputToDecimal(amountText).negate().toPlainString();
+                    splitAmountEditText.setText(changedSignText);
                 }
                 updateTotal();
             }
         });
 
+        splitTypeButton.setChecked(mBaseAmount.signum() < 0);
+
         updateTransferAccountsList(accountsSpinner);
         if (split != null) {
+            splitTypeButton.setChecked(split.getAmount().isNegative());
             setSelectedTransferAccount(mAccountsDbAdapter.getAccountID(split.getAccountUID()), accountsSpinner);
-
             splitAmountEditText.setText(split.getAmount().toPlainString());
             splitMemoEditText.setText(split.getMemo());
+
+            if (split.isPrimary()){
+                accountsSpinner.setEnabled(false);
+                removeSplitButton.setVisibility(View.GONE);
+                splitAmountEditText.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence charSequence, int i, int i2, int i3) {
+
+                    }
+
+                    @Override
+                    public void onTextChanged(CharSequence charSequence, int i, int i2, int i3) {
+
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable editable) {
+                        mBaseAmount = TransactionFormFragment.parseInputToDecimal(editable.toString());
+                    }
+                });
+            }
         }
     }
 
@@ -262,7 +306,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
         mSaveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                List<Split> splitList = extractSplits();
+                List<Split> splitList = extractSplitsFromView();
                 ((TransactionFormFragment)getTargetFragment()).setSplitList(splitList);
 
                 dismiss();
@@ -272,7 +316,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
         mAddSplit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                addSplitView();
+                addSplitView(null);
             }
         });
     }
@@ -281,12 +325,12 @@ public class SplitEditorDialogFragment extends DialogFragment {
      * Extracts the input from the views and builds {@link org.gnucash.android.model.Split}s to correspond to the input.
      * @return List of {@link org.gnucash.android.model.Split}s represented in the view
      */
-    private List<Split> extractSplits(){
+    private List<Split> extractSplitsFromView(){
         List<Split> splitList = new ArrayList<Split>();
         for (View splitView : mSplitItemViewList) {
             EditText splitMemoEditText              = (EditText)    splitView.findViewById(R.id.input_split_memo);
-            final EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.split_amount);
-            Spinner accountsSpinner                 = (Spinner)     splitView.findViewById(R.id.input_split_account_spinner);
+            final EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.input_split_amount);
+            Spinner accountsSpinner                 = (Spinner)     splitView.findViewById(R.id.input_accounts_spinner);
             final ToggleButton splitTypeButton      = (ToggleButton) splitView.findViewById(R.id.btn_split_type);
 
 
@@ -296,6 +340,20 @@ public class SplitEditorDialogFragment extends DialogFragment {
             Money amount = new Money(amountBigDecimal, Currency.getInstance(currencyCode));
             Split split = new Split(amount, accountUID);
             split.setMemo(splitMemoEditText.getText().toString());
+            Account.AccountType accountType = mAccountsDbAdapter.getAccountType(accountUID);
+            if (accountType.hasDebitNormalBalance()){
+                //if we show negative value to a user, then that is a credit for "debit balance" accounts
+                if (splitTypeButton.isChecked())
+                    split.setType(TransactionType.CREDIT);
+                else
+                    split.setType(TransactionType.DEBIT);
+            } else {
+                //if we show negative value to a user, then that is a debit for "debit balance" accounts
+                if (splitTypeButton.isChecked())
+                    split.setType(TransactionType.DEBIT);
+                else
+                    split.setType(TransactionType.CREDIT);
+            }
 
             splitList.add(split);
         }
@@ -306,16 +364,14 @@ public class SplitEditorDialogFragment extends DialogFragment {
      * Updates the displayed total for the transaction
      */
     private void updateTotal(){
-        List<Split> splitList = extractSplits();
-        Money zeroInstance  = Money.createInstance(mAccountsDbAdapter.getCurrencyCode(mAccountId));
-//        String accountUID = mAccountsDbAdapter.getAccountUID(mAccountId);
-//        Money transactionAmount = mTransactionsDbAdapter.getTransaction(mTransactionId).getBalance(accountUID);
+        List<Split> splitList = extractSplitsFromView();
+        String currencyCode = mAccountsDbAdapter.getCurrencyCode(mAccountId);
+        Money zeroInstance  = Money.createZeroInstance(currencyCode);
 
-        //FIXME: properly compute the balances
-        Money transactionAmount = zeroInstance;
-        Money splitSum      = zeroInstance;
+        Money transactionAmount = new Money(mBaseAmount, Currency.getInstance(currencyCode));
+        Money splitSum          = zeroInstance;
         for (Split split : splitList) {
-            splitSum.add(split.getAmount());
+            splitSum = splitSum.add(split.getAmount());
         }
 
         Money unassigned = zeroInstance;

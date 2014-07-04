@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.gnucash.android.ui.transaction;
+package org.gnucash.android.ui.transaction.dialog;
 
 import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;

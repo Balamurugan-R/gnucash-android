@@ -204,15 +204,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 			+ KEY_ROW_ID 		+ " integer primary key autoincrement, "
 			+ KEY_UID 			+ " varchar(255) not null, "			
 			+ KEY_NAME 			+ " varchar(255), "
-			+ KEY_TYPE 			+ " varchar(255) not null, "
-			+ KEY_AMOUNT 		+ " varchar(255) not null, "
 			+ KEY_DESCRIPTION 	+ " text, "
 			+ KEY_TIMESTAMP 	+ " integer not null, "
-			+ KEY_ACCOUNT_UID 	+ " varchar(255) not null, "			
 			+ KEY_EXPORTED 		+ " tinyint default 0, "
             + KEY_CURRENCY_CODE + " varchar(255) not null, "
             + KEY_RECURRENCE_PERIOD         + " integer default 0, "
-			+ "FOREIGN KEY (" 	+ KEY_ACCOUNT_UID + ") REFERENCES " + ACCOUNTS_TABLE_NAME + " (" + KEY_UID + "), "
 			+ "UNIQUE (" 		+ KEY_UID + ") "
 			+ ");";
 
@@ -350,7 +346,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 Log.i(TAG, "Upgrading database to version 6");
 
                 //TODO: Backup database first!!
-
+                /* - Backup in GnuCash XML format
+                 * - Read in file from GnuCash XML format
+                 */
                 db.execSQL(SPLITS_TABLE_CREATE);
                 String addCurrencyToTransactions = " ALTER TABLE " + TRANSACTIONS_TABLE_NAME
                         + " ADD COLUMN " + KEY_CURRENCY_CODE + " varchar(255) ";
@@ -359,10 +357,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 Cursor trxCursor = db.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
                         null, null, null, null, null, null);
                 while(trxCursor != null && trxCursor.moveToNext()){
-                    String accountUID = trxCursor.getString(DatabaseAdapter.COLUMN_ACCOUNT_UID);
+                    String accountUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(KEY_ACCOUNT_UID));
                     String doubleAccountUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(KEY_DOUBLE_ENTRY_ACCOUNT_UID));
                     Currency currency = Currency.getInstance(MigrationHelper.getCurrencyCode(db, accountUID));
-                    String amountString = trxCursor.getString(DatabaseAdapter.COLUMN_AMOUNT);
+                    String amountString = trxCursor.getString(trxCursor.getColumnIndexOrThrow(KEY_AMOUNT));
                     Money amount = new Money(new BigDecimal(amountString), currency);
 
                     String transactionUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));

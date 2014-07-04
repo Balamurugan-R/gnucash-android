@@ -43,13 +43,11 @@ public abstract class DatabaseAdapter {
 	public static final int COLUMN_TYPE 	= 3;
 	
 	//columns indices specific to transactions
-	public static final int COLUMN_AMOUNT 		= 4;
-	public static final int COLUMN_DESCRIPTION 	= 5;
-	public static final int COLUMN_TIMESTAMP 	= 6;
-	public static final int COLUMN_ACCOUNT_UID 	= 7;
-	public static final int COLUMN_EXPORTED 	= 8;
-    public static final int COLUMN_CURRENCY_CODE= 9;
-    public static final int COLUMN_RECURRENCE_PERIOD = 10;
+	public static final int COLUMN_DESCRIPTION 	= 2;
+	public static final int COLUMN_TIMESTAMP 	= 3;
+	public static final int COLUMN_EXPORTED 	= 5;
+    public static final int COLUMN_CURRENCY_CODE= 6;
+    public static final int COLUMN_RECURRENCE_PERIOD = 7;
 	
 	//columns indices specific to accounts
 	public static final int COLUMN_ACCOUNT_CURRENCY     = 4;

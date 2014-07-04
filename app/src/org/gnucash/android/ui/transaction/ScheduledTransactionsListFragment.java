@@ -391,10 +391,10 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         public void bindView(View view, Context context, Cursor cursor) {
             super.bindView(view, context, cursor);
             AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(getActivity());
-            long accountID = accountsDbAdapter.getAccountID(cursor.getString(DatabaseAdapter.COLUMN_ACCOUNT_UID));
+            long accountID = accountsDbAdapter.getAccountID(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID)));
 
             Money amount = new Money(
-                    cursor.getString(DatabaseAdapter.COLUMN_AMOUNT),
+                    cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_AMOUNT)),
                     mTransactionsDbAdapter.getCurrencyCode(accountID));
 
             TextView tramount = (TextView) view.findViewById(R.id.transaction_amount);

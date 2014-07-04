@@ -19,8 +19,6 @@ package org.gnucash.android.ui.transaction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DateFormat;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.*;
 
@@ -37,6 +35,7 @@ import org.gnucash.android.ui.transaction.dialog.DatePickerDialogFragment;
 import org.gnucash.android.ui.transaction.dialog.SplitEditorDialogFragment;
 import org.gnucash.android.ui.transaction.dialog.TimePickerDialogFragment;
 import org.gnucash.android.ui.UxArgument;
+import org.gnucash.android.ui.util.AmountInputFormatter;
 import org.gnucash.android.ui.widget.WidgetConfigurationActivity;
 
 import android.app.DatePickerDialog;
@@ -51,8 +50,6 @@ import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.widget.SimpleCursorAdapter;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -236,7 +233,7 @@ public class TransactionFormFragment extends SherlockFragment implements
 
         mAccountId = getArguments().getLong(UxArgument.SELECTED_ACCOUNT_ID);
         mAccountType = mAccountsDbAdapter.getAccountType(mAccountId);
-        toggleTransactionTypeState();
+        updateTransactionTypeState();
 
         setListeners();
 		if (mTransaction == null)
@@ -254,7 +251,7 @@ public class TransactionFormFragment extends SherlockFragment implements
      * represents a negative amount, and unchecked is positive. The CREDIT/DEBIT label depends on the account.
      * Different types of accounts handle CREDITS/DEBITS differently
      */
-    private void toggleTransactionTypeState() {
+    private void updateTransactionTypeState() {
         if (mAccountType.hasDebitNormalBalance()){
             mTransactionTypeButton.setTextOff(getString(R.string.label_debit));
             mTransactionTypeButton.setTextOn(getString(R.string.label_credit));
@@ -317,7 +314,7 @@ public class TransactionFormFragment extends SherlockFragment implements
         String accountUID = mAccountsDbAdapter.getAccountUID(mAccountId);
         mTransactionTypeButton.setChecked(mTransaction.getBalance(accountUID).isNegative());
 
-		if (!mAmountInputFormatter.isModified){
+		if (!mAmountInputFormatter.isInputModified()){
             //when autocompleting, only change the amount if the user has not manually changed it already
             mAmountEditText.setText(mTransaction.getBalance(accountUID).toPlainString());
         }
@@ -361,15 +358,7 @@ public class TransactionFormFragment extends SherlockFragment implements
 
 		String typePref = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(getString(R.string.key_default_transaction_type), "DEBIT");
 		if (typePref.equals("CREDIT")){
-            if (mAccountType.hasDebitNormalBalance())
-                mTransactionTypeButton.setChecked(false);
-            else
-                mTransactionTypeButton.setChecked(true);
-		} else { //DEBIT
-            if (mAccountType.hasDebitNormalBalance())
-                mTransactionTypeButton.setChecked(true);
-            else
-                mTransactionTypeButton.setChecked(false);
+            mTransactionTypeButton.setChecked(false);
         }
 
 		final long accountId = getArguments().getLong(UxArgument.SELECTED_ACCOUNT_ID);
@@ -436,18 +425,29 @@ public class TransactionFormFragment extends SherlockFragment implements
 	 * Sets click listeners for the dialog buttons
 	 */
 	private void setListeners() {
-        mAmountInputFormatter = new AmountInputFormatter(mAmountEditText);
+        mAmountInputFormatter = new AmountInputFormatter(mAmountEditText, mTransactionTypeButton);
         mAmountEditText.addTextChangedListener(mAmountInputFormatter);
 
         mOpenSplitsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if (mAmountEditText.getText().toString().length() == 0){
+                    Toast.makeText(getActivity(), "Please enter an amount to split", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 FragmentManager fragmentManager = getActivity().getSupportFragmentManager();
 
+                long transactionId = getArguments().getLong(UxArgument.SELECTED_TRANSACTION_ID);
                 SplitEditorDialogFragment splitEditorDialogFragment =
-                        SplitEditorDialogFragment.newInstance(
-                                getArguments().getLong(UxArgument.SELECTED_TRANSACTION_ID),
-                                getArguments().getLong(UxArgument.SELECTED_ACCOUNT_ID));
+                        SplitEditorDialogFragment.newInstance(transactionId, mAccountId);
+                if (transactionId <= 0){
+                    BigDecimal enteredAmount = parseInputToDecimal(mAmountEditText.getText().toString());
+                    splitEditorDialogFragment.getArguments().putString(UxArgument.AMOUNT_STRING,
+                            enteredAmount.toPlainString());
+                    splitEditorDialogFragment.getArguments().putLong(UxArgument.SELECTED_ACCOUNT_ID,
+                            mDoubleAccountSpinner.getSelectedItemId());
+                }
+                //TODO: handle case of when user is editing a transaction a second time without having saved
                 splitEditorDialogFragment.setTargetFragment(TransactionFormFragment.this, 0);
                 splitEditorDialogFragment.show(fragmentManager, "splits_editor");
             }
@@ -471,8 +471,8 @@ public class TransactionFormFragment extends SherlockFragment implements
 				}
 				String amountText = mAmountEditText.getText().toString();
 				if (amountText.length() > 0){
-					Money money = new Money(stripCurrencyFormatting(amountText)).divide(100).negate();
-					mAmountEditText.setText(money.toPlainString()); //trigger an edit to update the number sign
+                    String changedSignText = parseInputToDecimal(amountText).negate().toPlainString();
+					mAmountEditText.setText(changedSignText); //trigger an edit to update the number sign
 				}
 			}
 		});
@@ -544,7 +544,7 @@ public class TransactionFormFragment extends SherlockFragment implements
 
         Account.AccountType previousAccountType = mAccountType;
         mAccountType = accountsDbAdapter.getAccountType(newAccountId);
-        toggleTransactionTypeState();
+        updateTransactionTypeState();
 
         //if the new account has a different credit/debit philosophy as the previous one, then toggle the button
         if (mAccountType.hasDebitNormalBalance() != previousAccountType.hasDebitNormalBalance()){
@@ -581,26 +581,22 @@ public class TransactionFormFragment extends SherlockFragment implements
 			mTransaction.setName(name);
 		} else {
 			mTransaction = new Transaction(name);
-            Split split = new Split(amount, mAccountsDbAdapter.getAccountUID(accountID));
             if (mSplitsList.isEmpty()) { //amount entered in the simple interface (not using splits Editor)
+                Split split = new Split(amount, mAccountsDbAdapter.getAccountUID(accountID));
                 boolean isDebit = mTransactionTypeButton.isChecked();
-                TransactionType type;
-                if (mAccountType.hasDebitNormalBalance()) {
-                    type = isDebit ? TransactionType.CREDIT : TransactionType.DEBIT;
-                } else
-                    type = isDebit ? TransactionType.DEBIT : TransactionType.CREDIT;
+                TransactionType type = Transaction.getTypeForBalance(mAccountType, isDebit);
                 split.setType(type);
                 mTransaction.addSplit(split);
 
-                //create a split pair corresponding
                 long transferAcctId = mDoubleAccountSpinner.getSelectedItemId();
                 String transferAcctUID = mAccountsDbAdapter.getAccountUID(transferAcctId);
                 mTransaction.addSplit(split.createPair(transferAcctUID));
             } else { //split editor was used to enter splits
                 mTransaction.setSplits(mSplitsList);
             }
+            //TODO: When no double entry is activated, use the imbalance account
 		}
-
+        mTransaction.setCurrencyCode(mAccountsDbAdapter.getCurrencyCode(accountID));
 		mTransaction.setTime(cal.getTimeInMillis());
 		mTransaction.setDescription(description);
 
@@ -668,9 +664,29 @@ public class TransactionFormFragment extends SherlockFragment implements
 		}
 	}
 
+    /**
+     * Called by the split editor fragment to notify of finished editing
+     * @param splitList List of splits produced in the fragment
+     */
     public void setSplitList(List<Split> splitList){
         mSplitsList = splitList;
-        //TODO: Update the total shown in the transaction
+        String accountUID = mAccountsDbAdapter.getAccountUID(mAccountId);
+        Money balance = Transaction.computeBalance(accountUID, mSplitsList);
+
+        mAmountEditText.setText(balance.toPlainString());
+        //once we set the split list, do not allow direct editing of the total
+        if (mSplitsList.size() > 1){
+            mAmountEditText.setEnabled(false);
+            getView().findViewById(R.id.layout_double_entry).setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Returns the list of splits currently in editing
+     * @return List of splits
+     */
+    public List<Split> getSplitList(){
+        return mSplitsList;
     }
 
 	/**
@@ -713,13 +729,20 @@ public class TransactionFormFragment extends SherlockFragment implements
 
 	/**
 	 * Strips formatting from a currency string.
-	 * All non-digit information is removed
+	 * All non-digit information is removed, but the sign is preserved.
 	 * @param s String to be stripped
 	 * @return Stripped string with all non-digits removed
 	 */
 	public static String stripCurrencyFormatting(String s){
+        if (s.length() == 0)
+            return s;
 		//remove all currency formatting and anything else which is not a number
-		return s.trim().replaceAll("\\D*", "");
+        String sign = s.trim().substring(0,1);
+        String stripped = s.trim().replaceAll("\\D*", "");
+        if (sign.equals("+") || sign.equals("-")){
+            stripped = sign + stripped;
+        }
+		return stripped;
 	}
 
 	/**
@@ -740,63 +763,4 @@ public class TransactionFormFragment extends SherlockFragment implements
 	}
 
 
-	/**
-	 * Captures input string in the amount input field and parses it into a formatted amount
-	 * The amount input field allows numbers to be input sequentially and they are parsed
-	 * into a string with 2 decimal places. This means inputting 245 will result in the amount
-	 * of 2.45
-	 * @author Ngewi Fet <ngewif@gmail.com>
-	 */
-	public static class AmountInputFormatter implements TextWatcher {
-		private String current = "0";
-		private EditText amountEditText;
-
-        /**
-         * Flag to note if the user has manually edited the amount of the transaction
-         */
-        private boolean isModified = false;
-
-        public AmountInputFormatter(EditText amountInput){
-            this.amountEditText = amountInput;
-        }
-
-		@Override
-		public void afterTextChanged(Editable s) {
-			if (s.length() == 0)
-				return;
-
-			BigDecimal amount = parseInputToDecimal(s.toString());
-			DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance(Locale.getDefault());
-			formatter.setMinimumFractionDigits(2);
-			formatter.setMaximumFractionDigits(2);
-			current = formatter.format(amount.doubleValue());
-
-            amountEditText.removeTextChangedListener(this);
-            amountEditText.setText(current);
-            amountEditText.setSelection(current.length());
-            amountEditText.addTextChangedListener(this);
-
-		}
-
-		@Override
-		public void beforeTextChanged(CharSequence s, int start, int count,
-				int after) {
-			// nothing to see here, move along
-		}
-
-		@Override
-		public void onTextChanged(CharSequence s, int start, int before,
-				int count) {
-			// nothing to see here, move along
-			isModified = true;
-		}
-
-        /**
-         * Returns true if input has been entered into the view
-         * @return <code>true</code> if the view has been modified, <code>false</code> otherwise.
-         */
-        public boolean isInputModified(){
-            return isModified;
-        }
-	}
 }

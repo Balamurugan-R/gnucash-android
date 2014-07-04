@@ -351,7 +351,7 @@ public class Account {
 	 * @return {@link Money} aggregate amount of all transactions in account.
 	 */
 	public Money getBalance(){
-		Money balance = Money.createInstance(mCurrency.getCurrencyCode());
+		Money balance = Money.createZeroInstance(mCurrency.getCurrencyCode());
         for (Transaction transaction : mTransactionsList) {
             balance.add(transaction.getBalance(mUID));
 		}

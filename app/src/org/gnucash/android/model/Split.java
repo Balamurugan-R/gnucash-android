@@ -11,7 +11,6 @@ import java.util.UUID;
  * @author Ngewi Fet <ngewif@gmail.com>
  */
 public class Split {
-    //TODO: Mark the primary split for a transaction. But what if the primary becomes less than others
     /**
      * Amount value of this split
      */
@@ -45,10 +44,10 @@ public class Split {
     /**
      * This marks the primary split of this transaction. This represents the overarching amount which is then
      * broken down into smaller splits.
-     * Unlike in GnuCash desktop where all splits are created equal, the primary split in this case have the
-     * biggest (absolute) value of all the splits.
+     * <p>Unlike in GnuCash desktop where all splits are created equal, the primary split in this case have the
+     * biggest (absolute) value of all the splits.</p>
      */
-    private boolean mIsPrimary;
+    private boolean mIsPrimary = false;
 
     /**
      * Initialize split with an amount and account
@@ -108,6 +107,14 @@ public class Split {
 
     public void setMemo(String memo) {
         this.mMemo = memo;
+    }
+
+    public void setPrimary(boolean isPrimary){
+        this.mIsPrimary = isPrimary;
+    }
+
+    public boolean isPrimary(){
+        return mIsPrimary;
     }
 
     public Split createPair(String accountUID){

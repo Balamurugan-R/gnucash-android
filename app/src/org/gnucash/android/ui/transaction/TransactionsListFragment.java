@@ -52,6 +52,8 @@ import org.gnucash.android.db.DatabaseAdapter;
 import org.gnucash.android.db.DatabaseCursorLoader;
 import org.gnucash.android.db.DatabaseHelper;
 import org.gnucash.android.db.TransactionsDbAdapter;
+import org.gnucash.android.model.Transaction;
+import org.gnucash.android.ui.transaction.dialog.BulkMoveDialogFragment;
 import org.gnucash.android.ui.util.Refreshable;
 import org.gnucash.android.ui.UxArgument;
 import org.gnucash.android.ui.account.AccountsListFragment;
@@ -413,27 +415,11 @@ public class TransactionsListFragment extends SherlockListFragment implements
 		
 		@Override
 		public void bindView(View view, Context context, Cursor cursor) {
-			super.bindView(view, context, cursor);			
-			
-			Money amount = new Money(
-					cursor.getString(DatabaseAdapter.COLUMN_AMOUNT), 
-					mTransactionsDbAdapter.getCurrencyCode(mAccountID));
+			super.bindView(view, context, cursor);
 
-            //FIXME: Take normal account balances into consideration for double entries
-//            String mainAccountUID = cursor.getString(DatabaseAdapter.COLUMN_ACCOUNT_UID);
-//            Account.AccountType mainAccountType = mTransactionsDbAdapter.getAccountType(mainAccountUID);
+            long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+			Money amount = mTransactionsDbAdapter.getBalance(transactionId, mAccountID);
 
-			//negate any transactions if this account is the origin in double entry
-			String transferAccountUID = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID));
-
-			if (transferAccountUID != null
-					&& mTransactionsDbAdapter.isSameAccount(mAccountID, transferAccountUID)){
-//                Account.AccountType transferAccountType = mTransactionsDbAdapter.getAccountType(transferAccountUID);
-//
-//                if (mainAccountType.getNormalBalanceType() == transferAccountType.getNormalBalanceType())
-                amount = amount.negate();
-			}
-				
 			TextView tramount = (TextView) view.findViewById(R.id.transaction_amount);
 			tramount.setText(amount.formattedString(Locale.getDefault()));
 						

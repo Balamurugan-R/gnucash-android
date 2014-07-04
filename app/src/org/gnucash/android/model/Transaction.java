@@ -153,19 +153,17 @@ public class Transaction {
     }
 
     /**
-     * Returns what kind of transaction this is for the specified account depending on the split for that account.
+     * Returns what kind of transaction this is for the specified account depending on the splits for that account.
      * <br>This is mostly necessary for generating OFX files.
      * @param accountUID Unique Identifier of the account
      * @return TransactionType of this transaction
      */
     public TransactionType getTransactionTypeForAccount(String accountUID){
         List<Split> splitList = getSplits(accountUID);
-        TransactionType type;
+        if (splitList.size() == 1)
+            return splitList.get(0).getType();
 
-        Money balance = Money.createInstance(mCurrencyCode);
-        for (Split split : splitList) {
-            balance.add(split.getAmount());
-        }
+        Money balance = getBalance(accountUID);
 
         return balance.isNegative() ? TransactionType.DEBIT : TransactionType.CREDIT;
     }
@@ -187,10 +185,14 @@ public class Transaction {
 
     /**
      * Sets the splits for this transaction
+     * <p>All the splits in the list will have their transaction UID set to this transaction</p>
      * @param splitList List of splits for this transaction
      */
     public void setSplits(List<Split> splitList){
-        mSplitList = splitList;
+        mSplitList.clear();
+        for (Split split : splitList) {
+            addSplit(split);
+        }
     }
 
     /**
@@ -206,36 +208,49 @@ public class Transaction {
     }
 
     /**
-     * Returns the balance of this transaction for only those splits which relate to the account
+     * Returns the balance of this transaction for only those splits which relate to the account.
+     * <p>Uses a call to {@link #getBalance(String)} with the appropriate parameters</p>
      * @param accountUID Unique Identifier of the account
      * @return Money balance of the transaction for the specified account
+     * @see #computeBalance(String, java.util.List)
      */
     public Money getBalance(String accountUID){
-        Money balance = Money.createInstance(mCurrencyCode);
+        return computeBalance(accountUID, mSplitList);
+    }
+
+    /**
+     * Computes the balance of the splits belonging to a particular account.
+     * Only those splits which belong to the account will be considered.
+     * @param accountUID Unique Identifier of the account
+     * @param splitList List of splits
+     * @return Money list of splits
+     */
+    public static Money computeBalance(String accountUID, List<Split> splitList){
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
         Account.AccountType accountType = accountsDbAdapter.getAccountType(accountUID);
+        String currencyCode = accountsDbAdapter.getCurrencyCode(accountUID);
         accountsDbAdapter.close();
 
         boolean isDebitAccount = accountType.hasDebitNormalBalance();
-        for (Split split : mSplitList) {
+        Money balance = Money.createZeroInstance(currencyCode);
+        for (Split split : splitList) {
             if (!split.getAccountUID().equals(accountUID))
                 continue;
-
+            Money absAmount = split.getAmount().absolute();
             boolean isDebitSplit = split.getType() == TransactionType.DEBIT;
             if (isDebitAccount) {
                 if (isDebitSplit) {
-                    balance = balance.add(split.getAmount());
+                    balance = balance.add(absAmount);
                 } else {
-                    balance = balance.subtract(split.getAmount());
+                    balance = balance.subtract(absAmount);
                 }
             } else {
                 if (isDebitSplit) {
-                    balance = balance.subtract(split.getAmount());
+                    balance = balance.subtract(absAmount);
                 } else {
-                    balance = balance.add(split.getAmount());
+                    balance = balance.add(absAmount);
                 }
             }
-
         }
         return balance;
     }
@@ -273,7 +288,7 @@ public class Transaction {
 	 * @return Properly formatted string amount for account
 	 */
 	public Money getFormattedAmount(String accountUID){
-        Money balance = Money.createInstance(mCurrencyCode);
+        Money balance = Money.createZeroInstance(mCurrencyCode);
         for (Split split : mSplitList) {
             if (split.getAccountUID().equals(accountUID)){
                 balance = balance.add(split.getAmount());
@@ -362,6 +377,23 @@ public class Transaction {
 	public String getUID() {
 		return mUID;
 	}
+
+    /**
+     * Returns the corresponding {@link TransactionType} given the accounttype and the effect which the transaction
+     * type should have on the account balance
+     * @param accountType Type of account
+     * @param shouldReduceBalance <code>true</code> if type should reduce balance, <code>false</code> otherwise
+     * @return TransactionType for the account
+     */
+    public static TransactionType getTypeForBalance(Account.AccountType accountType, boolean shouldReduceBalance){
+        TransactionType type;
+        if (accountType.hasDebitNormalBalance()) {
+            type = shouldReduceBalance ? TransactionType.CREDIT : TransactionType.DEBIT;
+        } else {
+            type = shouldReduceBalance ? TransactionType.DEBIT : TransactionType.CREDIT;
+        }
+        return type;
+    }
 
 	/**
 	 * Sets the exported flag on the transaction

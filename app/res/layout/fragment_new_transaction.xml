@@ -78,7 +78,7 @@
             <Button android:id="@+id/btn_open_splits"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/content_split_holo_light"/>
+                    android:drawableLeft="@drawable/content_split_holo_light" />
 		</LinearLayout>
         <LinearLayout
                 android:id="@+id/layout_double_entry"

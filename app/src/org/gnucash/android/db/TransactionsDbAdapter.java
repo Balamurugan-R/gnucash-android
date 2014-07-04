@@ -22,7 +22,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
-import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.model.Money;
 import org.gnucash.android.model.Split;
@@ -73,6 +72,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		contentValues.put(DatabaseHelper.KEY_DESCRIPTION, transaction.getDescription());
 		contentValues.put(DatabaseHelper.KEY_EXPORTED, transaction.isExported() ? 1 : 0);
 		contentValues.put(DatabaseHelper.KEY_RECURRENCE_PERIOD, transaction.getRecurrencePeriod());
+        contentValues.put(DatabaseHelper.KEY_CURRENCY_CODE, transaction.getCurrencyCode());
 
 		long rowId = -1;
 		if ((rowId = fetchTransactionWithUID(transaction.getUID())) > 0){
@@ -259,7 +259,42 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		String accountUID = getAccountUID(accountId);
 		return getCurrencyCode(accountUID);
 	}
-	
+
+    /**
+     * Returns the transaction balance for the transaction for the specified account.
+     * <p>We consider only those splits which belong to this account</p>
+     * @param transactionId Database record ID of the transaction
+     * @param accountId Database record id of the account
+     * @return {@link org.gnucash.android.model.Money} balance of the transaction for that account
+     */
+    public Money getBalance(long transactionId, long accountId){
+        String accountUID = getAccountUID(accountId);
+        List<Split> splitList = mSplitsDbAdapter.getSplitsForTransactionInAccount(
+                getUID(transactionId), accountUID);
+
+        return Transaction.computeBalance(accountUID, splitList);
+    }
+
+    /**
+     * Returns the string unique identifier of the transaction
+     * @param transactionId Database record ID of transaction
+     * @return String unique identifier of the transaction
+     */
+    public String getUID(long transactionId){
+        String uid = null;
+        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
+                new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID},
+                DatabaseHelper.KEY_UID + "=" + transactionId,
+                null, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                uid = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
+            }
+            c.close();
+        }
+        return uid;
+    }
+
 	/**
 	 * Deletes transaction record with id <code>rowId</code>
 	 * @param rowId Long database record id

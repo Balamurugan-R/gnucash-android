@@ -34,7 +34,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         ContentValues contentValues = new ContentValues();
         contentValues.put(DatabaseHelper.KEY_UID, split.getUID());
         contentValues.put(DatabaseHelper.KEY_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().toPlainString());
+        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().absolute().toPlainString());
         contentValues.put(DatabaseHelper.KEY_TYPE, split.getType().name());
 
         Log.d(LOG_TAG, "Adding new transaction to db");
@@ -44,7 +44,6 @@ public class SplitsDbAdapter extends DatabaseAdapter {
             Log.d(TAG, "Updating existing transaction split");
             mDb.update(DatabaseHelper.SPLITS_TABLE_NAME, contentValues,
                     DatabaseHelper.KEY_ROW_ID + " = " + rowId, null);
-
         } else {
             Log.d(TAG, "Adding new transaction split to db");
             rowId = mDb.insert(DatabaseHelper.SPLITS_TABLE_NAME, null, contentValues);
@@ -146,6 +145,35 @@ public class SplitsDbAdapter extends DatabaseAdapter {
     }
 
     /**
+     * Fetch splits for a given transaction within a specific account
+     * @param transactionUID String unique ID of transaction
+     * @param accountUID String unique ID of account
+     * @return List of splits
+     */
+    public List<Split> getSplitsForTransactionInAccount(String transactionUID, String accountUID){
+        Cursor cursor = fetchSplits(transactionUID, accountUID);
+        List<Split> splitList = new ArrayList<Split>();
+        while (cursor != null && cursor.moveToNext()){
+            splitList.add(buildSplitInstance(cursor));
+        }
+        if (cursor != null)
+            cursor.close();
+
+        return splitList;
+    }
+
+    /**
+     * Fetches a collection of splits for a given condition and sorted by <code>sortOrder</code>
+     * @param condition String condition, formatted as SQL WHERE clause
+     * @param sortOrder Sort order for the returned records
+     * @return Cursor to split records
+     */
+    public Cursor fetchSplits(String condition, String sortOrder){
+        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
+                null, condition, null, null, null, sortOrder);
+    }
+
+    /**
      * Returns the database record ID of the split with unique IDentifier <code>uid</code>
      * @param uid Unique Identifier String of the split transaction
      * @return Database record ID of split
@@ -169,6 +197,16 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
                 null, DatabaseHelper.KEY_TRANSACTION_UID + " = ?",
                 new String[]{transactionUID},
+                null, null, DatabaseHelper.KEY_NAME + " ASC");
+    }
+
+    public Cursor fetchSplitsForTransactionAndAccount(String transactionUID, String accountUID){
+        Log.v(TAG, "Fetching all splits for transaction ID " + transactionUID
+                + "and account ID " + accountUID);
+        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
+                null, DatabaseHelper.KEY_TRANSACTION_UID + " = ? AND "
+                + DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
+                new String[]{transactionUID, accountUID},
                 null, null, DatabaseHelper.KEY_NAME + " ASC");
     }
 
