@@ -28,7 +28,6 @@
     <string name="label_account_name">Kontonavn</string>
     <string name="btn_cancel">Avbryt</string>
     <string name="btn_save">Lagre</string>
-    <string name="label_no_transactions_to_display">Ingen transaksjoner å vise</string>
     <string name="label_transaction_name">Beskrivelse</string>
     <string name="label_transaction_amount">Beløp</string>
     <string name="title_add_transaction">Ny transaksjon</string>

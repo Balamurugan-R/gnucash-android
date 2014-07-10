@@ -31,21 +31,22 @@ import java.util.Locale;
  * The amount input field allows numbers to be input sequentially and they are parsed
  * into a string with 2 decimal places. This means inputting 245 will result in the amount
  * of 2.45
+ *
  * @author Ngewi Fet <ngewif@gmail.com>
  */
 public class AmountInputFormatter implements TextWatcher {
     private String current = "0";
     private EditText amountEditText;
-private ToggleButton mTypeButton;
-/**
-* Flag to note if the user has manually edited the amount of the transaction
-*/
-private boolean isModified = false;
+    private ToggleButton mTypeButton;
+    /**
+     * Flag to note if the user has manually edited the amount of the transaction
+     */
+    private boolean isModified = false;
 
-public AmountInputFormatter(EditText amountInput, ToggleButton typeButton){
-this.amountEditText = amountInput;
-this.mTypeButton = typeButton;
-}
+    public AmountInputFormatter(EditText amountInput, ToggleButton typeButton) {
+        this.amountEditText = amountInput;
+        this.mTypeButton = typeButton;
+    }
 
     @Override
     public void afterTextChanged(Editable s) {
@@ -53,48 +54,49 @@ this.mTypeButton = typeButton;
             return;
 //make sure that the sign of the input is in line with the type button state
         BigDecimal amount = TransactionFormFragment.parseInputToDecimal(s.toString());
-        if (mTypeButton.isChecked()){
-if (amount.signum() > 0){
-amount = amount.negate();
-}
-} else { //if it is to increase account balance
-if (amount.signum() <= 0){
+        if (mTypeButton.isChecked()) {
+            if (amount.signum() > 0) {
+                amount = amount.negate();
+            }
+        } else { //if it is to increase account balance
+            if (amount.signum() <= 0) {
 //make the number positive
-amount = amount.negate();
-}
-}
+                amount = amount.negate();
+            }
+        }
 
-DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance(Locale.getDefault());
+        DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance(Locale.getDefault());
         formatter.setMinimumFractionDigits(2);
         formatter.setMaximumFractionDigits(2);
 
         current = formatter.format(amount.doubleValue());
-amountEditText.removeTextChangedListener(this);
-amountEditText.setText(current);
-amountEditText.setSelection(current.length());
-amountEditText.addTextChangedListener(this);
+        amountEditText.removeTextChangedListener(this);
+        amountEditText.setText(current);
+        amountEditText.setSelection(current.length());
+        amountEditText.addTextChangedListener(this);
 
-isModified = true;
+        isModified = true;
     }
 
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count,
-            int after) {
+                                  int after) {
         // nothing to see here, move along
     }
 
     @Override
     public void onTextChanged(CharSequence s, int start, int before,
-            int count) {
+                              int count) {
         // nothing to see here, move along
         isModified = true;
     }
 
-/**
-* Returns true if input has been entered into the view
-* @return <code>true</code> if the view has been modified, <code>false</code> otherwise.
-*/
-public boolean isInputModified(){
-return isModified;
-}
+    /**
+     * Returns true if input has been entered into the view
+     *
+     * @return <code>true</code> if the view has been modified, <code>false</code> otherwise.
+     */
+    public boolean isInputModified() {
+        return isModified;
+    }
 }

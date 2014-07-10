@@ -27,7 +27,6 @@
     <string name="label_account_name">Имя счёта</string>
     <string name="btn_cancel">Отмена</string>
     <string name="btn_save">Сохранить</string>
-    <string name="label_no_transactions_to_display">Нет проводок</string>
     <string name="label_transaction_name">Описание</string>
     <string name="label_transaction_amount">Сумма</string>
     <string name="title_add_transaction">Новая проводка</string>

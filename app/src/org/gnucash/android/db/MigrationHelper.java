@@ -4,7 +4,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
-import org.gnucash.android.model.Account;
+import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Split;
 
 /**
@@ -120,7 +120,7 @@ public class MigrationHelper {
      * @return Unique ID of the GnuCash root account.
      */
     private static String getGnuCashRootAccountUID(SQLiteDatabase db){
-        String condition = DatabaseHelper.KEY_TYPE + "= '" + Account.AccountType.ROOT.name() + "'";
+        String condition = DatabaseHelper.KEY_TYPE + "= '" + AccountType.ROOT.name() + "'";
         Cursor cursor =  db.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
                 null, condition, null, null, null,
                 DatabaseHelper.KEY_NAME + " ASC");

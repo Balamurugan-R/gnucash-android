@@ -42,14 +42,6 @@ public class Split {
     private String mMemo;
 
     /**
-     * This marks the primary split of this transaction. This represents the overarching amount which is then
-     * broken down into smaller splits.
-     * <p>Unlike in GnuCash desktop where all splits are created equal, the primary split in this case have the
-     * biggest (absolute) value of all the splits.</p>
-     */
-    private boolean mIsPrimary = false;
-
-    /**
      * Initialize split with an amount and account
      * @param amount Money amount of this split
      * @param accountUID String UID of transfer account
@@ -107,14 +99,6 @@ public class Split {
 
     public void setMemo(String memo) {
         this.mMemo = memo;
-    }
-
-    public void setPrimary(boolean isPrimary){
-        this.mIsPrimary = isPrimary;
-    }
-
-    public boolean isPrimary(){
-        return mIsPrimary;
     }
 
     public Split createPair(String accountUID){

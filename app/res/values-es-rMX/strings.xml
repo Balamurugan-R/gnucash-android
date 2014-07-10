@@ -27,7 +27,6 @@
     <string name="label_account_name">Nombre de la cuenta</string>
     <string name="btn_cancel">Cancelar</string>
     <string name="btn_save">Guardar</string>
-    <string name="label_no_transactions_to_display">No hay cuentas</string>
     <string name="label_transaction_name">Descripci&#243;n</string>
     <string name="label_transaction_amount">Monto</string>
     <string name="title_add_transaction">Nueva transacci&#243;n</string>

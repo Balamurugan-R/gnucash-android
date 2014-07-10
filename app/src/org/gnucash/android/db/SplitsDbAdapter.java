@@ -36,8 +36,8 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         contentValues.put(DatabaseHelper.KEY_TRANSACTION_UID, split.getTransactionUID());
         contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().absolute().toPlainString());
         contentValues.put(DatabaseHelper.KEY_TYPE, split.getType().name());
+        contentValues.put(DatabaseHelper.KEY_ACCOUNT_UID, split.getAccountUID());
 
-        Log.d(LOG_TAG, "Adding new transaction to db");
         long rowId = -1;
         if ((rowId = getID(split.getUID())) > 0){
             //if transaction already exists, then just update
@@ -151,7 +151,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return List of splits
      */
     public List<Split> getSplitsForTransactionInAccount(String transactionUID, String accountUID){
-        Cursor cursor = fetchSplits(transactionUID, accountUID);
+        Cursor cursor = fetchSplitsForTransactionAndAccount(transactionUID, accountUID);
         List<Split> splitList = new ArrayList<Split>();
         while (cursor != null && cursor.moveToNext()){
             splitList.add(buildSplitInstance(cursor));
@@ -192,12 +192,30 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         return result;
     }
 
+    /**
+     * Returns the unique identifier string of the split
+     * @param id Database record ID of the split
+     * @return String unique identifier of the split
+     */
+    public String getUID(long id){
+        Cursor cursor = mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
+                new String[] {DatabaseHelper.KEY_UID},
+                DatabaseHelper.KEY_ROW_ID + " = " + id, null, null, null, null);
+        String uid = null;
+        if (cursor != null && cursor.moveToFirst()){
+            Log.d(TAG, "Transaction already exists. Returning existing id");
+            uid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
+            cursor.close();
+        }
+        return uid;
+    }
+
     public Cursor fetchSplitsforTransaction(String transactionUID){
         Log.v(TAG, "Fetching all splits for transaction UID " + transactionUID);
         return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
                 null, DatabaseHelper.KEY_TRANSACTION_UID + " = ?",
                 new String[]{transactionUID},
-                null, null, DatabaseHelper.KEY_NAME + " ASC");
+                null, null, null);
     }
 
     public Cursor fetchSplitsForTransactionAndAccount(String transactionUID, String accountUID){
@@ -207,7 +225,27 @@ public class SplitsDbAdapter extends DatabaseAdapter {
                 null, DatabaseHelper.KEY_TRANSACTION_UID + " = ? AND "
                 + DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
                 new String[]{transactionUID, accountUID},
-                null, null, DatabaseHelper.KEY_NAME + " ASC");
+                null, null, DatabaseHelper.KEY_AMOUNT + " ASC");
+    }
+
+    /**
+     * Returns an account UID of the account with record id <code>accountRowID</code>
+     * @param accountRowID Record ID of account as long paramenter
+     * @return String containing UID of account
+     */
+    public String getAccountUID(long accountRowID){
+        String uid = null;
+        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+                new String[]{DatabaseHelper.KEY_UID},
+                DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
+                null, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                uid = c.getString(0);
+            }
+            c.close();
+        }
+        return uid;
     }
 
     /**
@@ -241,7 +279,77 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
     @Override
     public boolean deleteRecord(long rowId) {
-        return deleteRecord(DatabaseHelper.SPLITS_TABLE_NAME, rowId);
+        String transactionUID = getSplit(getUID(rowId)).getTransactionUID();
+        boolean result = deleteRecord(DatabaseHelper.SPLITS_TABLE_NAME, rowId);
+
+        //if we just deleted the last split, then remove the transaction from db
+        Cursor cursor = fetchSplitsforTransaction(transactionUID);
+        if (cursor != null){
+            if (cursor.getCount() > 0){
+                result &= deleteTransaction(getTransactionID(transactionUID));
+            }
+            cursor.close();
+        }
+        return result;
+    }
+
+    /**
+     * Returns the database record ID for the specified transaction UID
+     * @param transactionUID Unique idendtifier of the transaction
+     * @return Database record ID for the transaction
+     */
+    public long getTransactionID(String transactionUID){
+        long id = -1;
+        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
+                new String[]{DatabaseHelper.KEY_ROW_ID},
+                DatabaseHelper.KEY_UID + "='" + transactionUID + "'",
+                null, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                id = c.getLong(0);
+            }
+            c.close();
+        }
+        return id;
+    }
+
+    /**
+     * Deletes all splits for a particular transaction and the transaction itself
+     * @param transactionId Database record ID of the transaction
+     * @return <code>true</code> if at least one split was deleted, <code>false</code> otherwise.
+     */
+    public boolean deleteSplitsForTransaction(long transactionId){
+        String trxUID = getTransactionUID(transactionId);
+        boolean result = mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME,
+                DatabaseHelper.KEY_TRANSACTION_UID + "=?",
+                new String[]{trxUID}) > 0;
+        result &= deleteTransaction(transactionId);
+        return result;
+    }
+
+    /**
+     * Deletes splits for a specific transaction and account and the transaction itself
+     * @param transactionId Database record ID of the transaction
+     * @param accountId Database ID of the account
+     * @return Number of records deleted
+     */
+    public int deleteSplitsForTransactionAndAccount(long transactionId, long accountId){
+        String transactionUID  = getTransactionUID(transactionId);
+        String accountUID      = getAccountUID(accountId);
+        int deletedCount = mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME,
+                DatabaseHelper.KEY_TRANSACTION_UID + "= ? AND "
+                + DatabaseHelper.KEY_ACCOUNT_UID + "= ?",
+                new String[]{transactionUID, accountUID});
+        deleteTransaction(transactionId);
+        return deletedCount;
+    }
+
+    /**
+     * Deletes the transaction from the the database
+     * @param transactionId Database record ID of the transaction
+     */
+    private boolean deleteTransaction(long transactionId) {
+        return deleteRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, transactionId);
     }
 
     @Override

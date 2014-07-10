@@ -21,6 +21,7 @@ import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseHelper;
 import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.ui.UxArgument;
+import org.gnucash.android.ui.transaction.TransactionsActivity;
 import org.gnucash.android.ui.util.Refreshable;
 import org.gnucash.android.ui.widget.WidgetConfigurationActivity;
 
@@ -144,9 +145,9 @@ public class BulkMoveDialogFragment extends DialogFragment {
 					Toast.makeText(getActivity(), R.string.toast_incompatible_currency, Toast.LENGTH_LONG).show();
 					return;
 				}
-				
+                long accountId      = ((TransactionsActivity)getActivity()).getCurrentAccountID();
 				for (long trxnId : mTransactionIds) {
-					trxnAdapter.moveTranscation(trxnId, dstAccountId);
+					trxnAdapter.moveTranscation(trxnId, accountId, dstAccountId);
 				}
 				trxnAdapter.close();
 

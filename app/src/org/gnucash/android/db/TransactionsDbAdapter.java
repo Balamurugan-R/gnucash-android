@@ -22,10 +22,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
-import org.gnucash.android.model.Account;
-import org.gnucash.android.model.Money;
-import org.gnucash.android.model.Split;
-import org.gnucash.android.model.Transaction;
+import org.gnucash.android.model.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -85,9 +82,11 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		}	
 
         if (rowId > 0){
+            Log.d(TAG, "Adding splits for transaction");
             for (Split split : transaction.getSplits()) {
                 mSplitsDbAdapter.addSplit(split);
             }
+            Log.d(TAG, transaction.getSplits().size() + " splits added");
         }
 		return rowId;
 	}
@@ -144,17 +143,17 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	public Cursor fetchAllTransactionsForAccount(String accountUID){
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
         queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
-                + " LEFT OUTER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
+                + " INNER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
                 + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
                 + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
 
-        //fetch transactions from this account except recurring transactions. Those have their own view
+        String[] projectionIn = new String[]{DatabaseHelper.TRANSACTIONS_TABLE_NAME + ".*"};
         String selection = DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID + " = ?"
                 + " AND " + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_RECURRENCE_PERIOD + " = 0";
         String[] selectionArgs = new String[]{accountUID};
         String sortOrder = DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_TIMESTAMP + " DESC";
 
-        return queryBuilder.query(mDb, null, selection, selectionArgs, null, null, sortOrder);
+        return queryBuilder.query(mDb, projectionIn, selection, selectionArgs, null, null, sortOrder);
 	}
 
     /**
@@ -180,7 +179,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Cursor holding set of transactions for particular account
 	 */
 	public Cursor fetchAllTransactionsForAccount(long accountID){
-		return fetchAllTransactionsForAccount(getAccountUID(accountID));	
+		return fetchAllTransactionsForAccount(getAccountUID(accountID));
 	}
 	
 	/**
@@ -212,12 +211,14 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
         long recurrencePeriod = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_RECURRENCE_PERIOD));
 		
 		Transaction transaction = new Transaction(name);
-		transaction.setUID(c.getString(DatabaseAdapter.COLUMN_UID));
-		transaction.setTime(c.getLong(DatabaseAdapter.COLUMN_TIMESTAMP));
-		transaction.setDescription(c.getString(DatabaseAdapter.COLUMN_DESCRIPTION));
-		transaction.setExported(c.getInt(DatabaseAdapter.COLUMN_EXPORTED) == 1);
+		transaction.setUID(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_UID)));
+		transaction.setTime(c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP)));
+		transaction.setDescription(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_DESCRIPTION)));
+		transaction.setExported(c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.KEY_EXPORTED)) == 1);
         transaction.setRecurrencePeriod(recurrencePeriod);
         transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_CURRENCY_CODE)));
+        long transactionID = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+        transaction.setSplits(mSplitsDbAdapter.getSplitsForTransaction(transactionID));
 
 		return transaction;
 	}
@@ -269,8 +270,9 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      */
     public Money getBalance(long transactionId, long accountId){
         String accountUID = getAccountUID(accountId);
+        String transactionUID = getUID(transactionId);
         List<Split> splitList = mSplitsDbAdapter.getSplitsForTransactionInAccount(
-                getUID(transactionId), accountUID);
+                transactionUID, accountUID);
 
         return Transaction.computeBalance(accountUID, splitList);
     }
@@ -284,7 +286,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
         String uid = null;
         Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
                 new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_UID + "=" + transactionId,
+                DatabaseHelper.KEY_ROW_ID + "=" + transactionId,
                 null, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
@@ -296,24 +298,24 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
     }
 
 	/**
-	 * Deletes transaction record with id <code>rowId</code>
+	 * Deletes transaction record with id <code>rowId</code> and all it's splits
 	 * @param rowId Long database record id
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise
 	 */
     @Override
 	public boolean deleteRecord(long rowId){
 		Log.d(TAG, "Delete transaction with record Id: " + rowId);
-		return deleteRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, rowId);
+		return mSplitsDbAdapter.deleteSplitsForTransaction(rowId) &&
+                deleteRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, rowId);
 	}
 	
 	/**
-	 * Deletes transaction record with unique ID <code>uid</code>
+	 * Deletes transaction record with unique ID <code>uid</code> and all its splits
 	 * @param uid String unique ID of transaction
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise
 	 */
 	public boolean deleteTransaction(String uid){
-		return mDb.delete(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				DatabaseHelper.KEY_UID + "='" + uid + "'", null) > 0;
+        return deleteRecord(getID(uid));
 	}
 	
 	/**
@@ -328,19 +330,21 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	/**
 	 * Assigns transaction with id <code>rowId</code> to account with id <code>accountId</code>
 	 * @param rowId Record ID of the transaction to be assigned
-	 * @param accountId Record Id of the account to which the transaction will be assigned
-	 * @return Number of transactions affected
+     * @param srcAccountId Record Id of the account from which the transaction is to be moved
+	 * @param dstAccountId Record Id of the account to which the transaction will be assigned
+	 * @return Number of transactions splits affected
 	 */
-	public int moveTranscation(long rowId, long accountId){
-		Log.i(TAG, "Moving transaction " + rowId + " to account " + accountId);
-		String accountUID = getAccountUID(accountId);
-		ContentValues contentValue = new ContentValues();
-		contentValue.put(DatabaseHelper.KEY_ACCOUNT_UID, accountUID);
-		
-		return mDb.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				contentValue, 
-				DatabaseHelper.KEY_ROW_ID + "=" + rowId, 
-				null);
+	public int moveTranscation(long rowId, long srcAccountId, long dstAccountId){
+		Log.i(TAG, "Moving transaction ID " + rowId + " splits from " + srcAccountId + " to account " + dstAccountId);
+		String srcAccountUID = getAccountUID(srcAccountId);
+        String dstAccountUID = getAccountUID(dstAccountId);
+
+		List<Split> splits = mSplitsDbAdapter.getSplitsForTransactionInAccount(getUID(rowId), srcAccountUID);
+        for (Split split : splits) {
+            split.setAccountUID(dstAccountUID);
+            mSplitsDbAdapter.addSplit(split);
+        }
+        return splits.size();
 	}
 	
 	/**
@@ -426,11 +430,11 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	}
 
     /**
-     * Returns the {@link Account.AccountType} of the account with unique ID <code>uid</code>
+     * Returns the {@link org.gnucash.android.model.AccountType} of the account with unique ID <code>uid</code>
      * @param accountUID Unique ID of the account
-     * @return {@link Account.AccountType} of the account
+     * @return {@link org.gnucash.android.model.AccountType} of the account
      */
-    public Account.AccountType getAccountType(String accountUID){
+    public AccountType getAccountType(String accountUID){
         String type = null;
         Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
                 new String[]{DatabaseHelper.KEY_TYPE},
@@ -442,7 +446,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
             }
             c.close();
         }
-        return Account.AccountType.valueOf(type);
+        return AccountType.valueOf(type);
     }
 
 	/**
@@ -488,9 +492,9 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
 	public String getAccountUID(long accountRowID){
 		String uid = null;
-		Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME, 
-				new String[]{DatabaseHelper.KEY_UID}, 
-				DatabaseHelper.KEY_ROW_ID + "=" + accountRowID, 
+		Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+				new String[]{DatabaseHelper.KEY_UID},
+				DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
 				null, null, null, null);
 		if (c != null) {
             if (c.moveToFirst()) {

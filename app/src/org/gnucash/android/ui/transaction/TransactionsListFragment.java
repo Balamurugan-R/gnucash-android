@@ -47,11 +47,8 @@ import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
 import com.actionbarsherlock.view.MenuItem;
 import org.gnucash.android.R;
+import org.gnucash.android.db.*;
 import org.gnucash.android.model.Money;
-import org.gnucash.android.db.DatabaseAdapter;
-import org.gnucash.android.db.DatabaseCursorLoader;
-import org.gnucash.android.db.DatabaseHelper;
-import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.model.Transaction;
 import org.gnucash.android.ui.transaction.dialog.BulkMoveDialogFragment;
 import org.gnucash.android.ui.util.Refreshable;
@@ -121,9 +118,11 @@ public class TransactionsListFragment extends SherlockListFragment implements
 				return true;
 
 			case R.id.context_menu_delete:
+                SplitsDbAdapter splitsDbAdapter = new SplitsDbAdapter(getActivity());
 				for (long id : getListView().getCheckedItemIds()) {
-					mTransactionsDbAdapter.deleteRecord(id);
-				}				
+                    splitsDbAdapter.deleteSplitsForTransactionAndAccount(id, mAccountID);
+				}
+                splitsDbAdapter.close();
 				refresh();
 				mode.finish();
 				WidgetConfigurationActivity.updateAllWidgets(getActivity());
@@ -151,8 +150,8 @@ public class TransactionsListFragment extends SherlockListFragment implements
 		mCursorAdapter = new TransactionsCursorAdapter(
 				getActivity().getApplicationContext(), 
 				R.layout.list_item_transaction, null, 
-				new String[] {DatabaseHelper.KEY_NAME, DatabaseHelper.KEY_AMOUNT}, 
-				new int[] {R.id.primary_text, R.id.transaction_amount});
+				new String[] {DatabaseHelper.KEY_NAME},
+				new int[] {R.id.primary_text});
 		setListAdapter(mCursorAdapter);
 	}
 	
@@ -448,7 +447,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
          * @see #isSameDay(long, long)
          */
         private void setSectionHeaderVisibility(View view, Cursor cursor) {
-            long transactionTime = cursor.getLong(DatabaseAdapter.COLUMN_TIMESTAMP);
+            long transactionTime = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP));
             int position = cursor.getPosition();
 
             boolean hasSectionHeader;
@@ -456,7 +455,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
                 hasSectionHeader = true;
             } else {
                 cursor.moveToPosition(position - 1);
-                long previousTimestamp = cursor.getLong(DatabaseAdapter.COLUMN_TIMESTAMP);
+                long previousTimestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP));
                 cursor.moveToPosition(position);
                 //has header if two consecutive transactions were not on same day
                 hasSectionHeader = !isSameDay(previousTimestamp, transactionTime);

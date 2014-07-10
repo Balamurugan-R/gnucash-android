@@ -26,7 +26,6 @@
     <string name="label_account_name">Kontoname</string>
     <string name="btn_cancel">Abbrechen</string>
     <string name="btn_save">Speichern</string>
-    <string name="no_transactions_to_display">Keine Buchungen vorhanden</string>
     <string name="label_transaction_name">Beschreibung</string>
     <string name="label_transaction_amount">Betrag </string>
     <string name="title_add_transaction">Neue Buchung</string>

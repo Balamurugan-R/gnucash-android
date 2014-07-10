@@ -27,7 +27,6 @@
     <string name="label_account_name">Όνομα λογαριασμού</string>
     <string name="btn_cancel">Ακύρωση</string>
     <string name="btn_save">Αποθήκευση</string>
-    <string name="label_no_transactions_to_display">Δεν υπάρχουν συναλλαγές για εμφάνιση</string>
     <string name="label_transaction_name">Περιγραφή</string>
     <string name="label_transaction_amount">Ποσό</string>
     <string name="title_add_transaction">Νέα συναλλαγή</string>

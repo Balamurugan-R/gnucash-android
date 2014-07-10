@@ -22,7 +22,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 import org.gnucash.android.model.Account;
-import org.gnucash.android.model.Account.AccountType;
+import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Money;
 import org.gnucash.android.model.Transaction;
 

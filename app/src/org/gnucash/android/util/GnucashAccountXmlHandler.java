@@ -22,6 +22,7 @@ import android.widget.Toast;
 import org.gnucash.android.R;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.db.AccountsDbAdapter;
+import org.gnucash.android.model.AccountType;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -117,7 +118,7 @@ public class GnucashAccountXmlHandler extends DefaultHandler {
         }
 
         if (qualifiedName.equalsIgnoreCase(TAG_TYPE)){
-            mAccount.setAccountType(Account.AccountType.valueOf(characterString));
+            mAccount.setAccountType(AccountType.valueOf(characterString));
         }
 
         if (qualifiedName.equalsIgnoreCase(TAG_COMMODITY_SPACE)){

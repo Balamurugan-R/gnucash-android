@@ -227,7 +227,7 @@ public class Transaction {
      */
     public static Money computeBalance(String accountUID, List<Split> splitList){
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
-        Account.AccountType accountType = accountsDbAdapter.getAccountType(accountUID);
+        AccountType accountType = accountsDbAdapter.getAccountType(accountUID);
         String currencyCode = accountsDbAdapter.getCurrencyCode(accountUID);
         accountsDbAdapter.close();
 
@@ -385,7 +385,7 @@ public class Transaction {
      * @param shouldReduceBalance <code>true</code> if type should reduce balance, <code>false</code> otherwise
      * @return TransactionType for the account
      */
-    public static TransactionType getTypeForBalance(Account.AccountType accountType, boolean shouldReduceBalance){
+    public static TransactionType getTypeForBalance(AccountType accountType, boolean shouldReduceBalance){
         TransactionType type;
         if (accountType.hasDebitNormalBalance()) {
             type = shouldReduceBalance ? TransactionType.CREDIT : TransactionType.DEBIT;

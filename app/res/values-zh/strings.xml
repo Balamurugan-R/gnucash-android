@@ -26,7 +26,6 @@
     <string name="label_account_name">科目名称</string>
     <string name="btn_cancel">取消</string>
     <string name="btn_save">保存</string>
-    <string name="label_no_transactions_to_display">没有要显示的交易</string>
     <string name="label_transaction_name">描述</string>
     <string name="label_transaction_amount">金额</string>
     <string name="title_add_transaction">新交易</string>

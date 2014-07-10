@@ -27,7 +27,6 @@
     <string name="label_account_name">Rekeningnaam</string>
     <string name="btn_cancel">Annuleren</string>
     <string name="btn_save">Bewaren</string>
-    <string name="label_no_transactions_to_display">Geen transacties beschikbaar</string>
     <string name="label_transaction_name">Beschrijving</string>
     <string name="label_transaction_amount">Bedrag</string>
     <string name="title_add_transaction">Nieuwe transactie</string>
