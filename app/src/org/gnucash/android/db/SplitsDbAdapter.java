@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.util.Log;
+import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Money;
 import org.gnucash.android.model.Split;
 import org.gnucash.android.model.TransactionType;
@@ -78,27 +79,6 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
 
     /**
-     * Returns the currency code of the transaction
-     * @param accountUID String unique ID of account
-     * @return ISO 4217 currency code string
-     */
-    public String getCurrencyCode(String accountUID){
-        Cursor cursor = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_CURRENCY_CODE},
-                DatabaseHelper.KEY_UID + "= ?",
-                new String[]{accountUID}, null, null, null);
-
-        String currencyCode = Money.DEFAULT_CURRENCY_CODE;
-
-        if (cursor != null && cursor.moveToFirst()){
-            currencyCode = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_CURRENCY_CODE));
-            cursor.close();
-        }
-
-        return currencyCode;
-    }
-
-    /**
      * Retrieves a split from the database
      * @param uid Unique Identifier String of the split transaction
      * @return {@link org.gnucash.android.model.Split} instance
@@ -112,8 +92,48 @@ public class SplitsDbAdapter extends DatabaseAdapter {
             split = buildSplitInstance(cursor);
             cursor.close();
         }
-
         return split;
+    }
+
+    /**
+     * Returns the sum of the splits for a given account.
+     * This takes into account the kind of movement caused by the split in the account (which also depends on account type)
+     * @param accountUID String unique ID of account
+     * @return Balance of the splits for this account
+     */
+    public Money computeSplitBalance(String accountUID){
+        Cursor cursor = fetchSplitsForAccount(accountUID);
+        String currencyCode = getCurrencyCode(accountUID);
+        Money splitSum = new Money("0", currencyCode);
+        AccountType accountType = getAccountType(accountUID);
+
+        if (cursor != null){
+            while(cursor.moveToNext()){
+                String amountString = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_AMOUNT));
+                String typeString = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
+
+                TransactionType transactionType = TransactionType.valueOf(typeString);
+                Money amount = new Money(amountString, currencyCode);
+
+                if (accountType.hasDebitNormalBalance()){
+                    switch (transactionType) {
+                        case DEBIT:
+                            splitSum = splitSum.add(amount);
+                        case CREDIT:
+                            splitSum = splitSum.subtract(amount);
+                    }
+                } else {
+                    switch (transactionType) {
+                        case DEBIT:
+                            splitSum = splitSum.subtract(amount);
+                        case CREDIT:
+                            splitSum = splitSum.add(amount);
+                    }
+                }
+            }
+            cursor.close();
+        }
+        return splitSum;
     }
 
     /**
@@ -122,7 +142,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return List of {@link org.gnucash.android.model.Split}s
      */
     public List<Split> getSplitsForTransaction(String transactionUID){
-        Cursor cursor = fetchSplitsforTransaction(transactionUID);
+        Cursor cursor = fetchSplitsForTransaction(transactionUID);
         List<Split> splitList = new ArrayList<Split>();
         while (cursor != null && cursor.moveToNext()){
             splitList.add(buildSplitInstance(cursor));
@@ -199,7 +219,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public String getUID(long id){
         Cursor cursor = mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_UID},
+                new String[]{DatabaseHelper.KEY_UID},
                 DatabaseHelper.KEY_ROW_ID + " = " + id, null, null, null, null);
         String uid = null;
         if (cursor != null && cursor.moveToFirst()){
@@ -210,7 +230,12 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         return uid;
     }
 
-    public Cursor fetchSplitsforTransaction(String transactionUID){
+    /**
+     * Returns a Cursor to a dataset of splits belonging to a specific transaction
+     * @param transactionUID Unique idendtifier of the transaction
+     * @return Cursor to splits
+     */
+    public Cursor fetchSplitsForTransaction(String transactionUID){
         Log.v(TAG, "Fetching all splits for transaction UID " + transactionUID);
         return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
                 null, DatabaseHelper.KEY_TRANSACTION_UID + " = ?",
@@ -218,6 +243,25 @@ public class SplitsDbAdapter extends DatabaseAdapter {
                 null, null, null);
     }
 
+    /**
+     * Fetches splits for a given account
+     * @param accountUID String unique ID of account
+     * @return Cursor containing splits dataset
+     */
+    public Cursor fetchSplitsForAccount(String accountUID){
+        Log.d(TAG, "Fetching all splits for account UID " + accountUID);
+        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
+                null, DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
+                new String[]{accountUID},
+                null, null, null);
+    }
+
+    /**
+     * Returns a cursor to splits for a given transaction and account
+     * @param transactionUID Unique idendtifier of the transaction
+     * @param accountUID String unique ID of account
+     * @return Cursor to splits data set
+     */
     public Cursor fetchSplitsForTransactionAndAccount(String transactionUID, String accountUID){
         Log.v(TAG, "Fetching all splits for transaction ID " + transactionUID
                 + "and account ID " + accountUID);
@@ -226,26 +270,6 @@ public class SplitsDbAdapter extends DatabaseAdapter {
                 + DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
                 new String[]{transactionUID, accountUID},
                 null, null, DatabaseHelper.KEY_AMOUNT + " ASC");
-    }
-
-    /**
-     * Returns an account UID of the account with record id <code>accountRowID</code>
-     * @param accountRowID Record ID of account as long paramenter
-     * @return String containing UID of account
-     */
-    public String getAccountUID(long accountRowID){
-        String uid = null;
-        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
-                null, null, null, null);
-        if (c != null) {
-            if (c.moveToFirst()) {
-                uid = c.getString(0);
-            }
-            c.close();
-        }
-        return uid;
     }
 
     /**
@@ -283,7 +307,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         boolean result = deleteRecord(DatabaseHelper.SPLITS_TABLE_NAME, rowId);
 
         //if we just deleted the last split, then remove the transaction from db
-        Cursor cursor = fetchSplitsforTransaction(transactionUID);
+        Cursor cursor = fetchSplitsForTransaction(transactionUID);
         if (cursor != null){
             if (cursor.getCount() > 0){
                 result &= deleteTransaction(getTransactionID(transactionUID));

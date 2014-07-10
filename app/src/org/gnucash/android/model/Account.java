@@ -527,8 +527,7 @@ public class Account {
 		for (Transaction transaction : mTransactionsList) {
 			if (!exportAllTransactions && transaction.isExported())
 				continue;
-            //TODO: reverse this and use only one entry (transaction balance) for OFX
-            transaction.toOfx(doc, bankTransactionsList, mUID);
+            bankTransactionsList.appendChild(transaction.toOfx(doc, mUID));
 		}		
 		//================= END TRANSACTIONS LIST =================================
 					

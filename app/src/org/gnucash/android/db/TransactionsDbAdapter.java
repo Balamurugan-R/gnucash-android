@@ -141,6 +141,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Cursor holding set of transactions for particular account
 	 */
 	public Cursor fetchAllTransactionsForAccount(String accountUID){
+        //TODO: Remove duplicate transactions for multiple splits belonging to the same account
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
         queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
                 + " INNER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
@@ -223,32 +224,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		return transaction;
 	}
 
-	/**
-	 * Returns the currency code (according to the ISO 4217 standard) of the account 
-	 * with unique Identifier <code>accountUID</code>
-	 * @param accountUID Unique Identifier of the account
-	 * @return Currency code of the account
-	 * @see #getCurrencyCode(long)
-	 */
-	public String getCurrencyCode(String accountUID) {
-		Cursor cursor = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME, 
-				new String[] {DatabaseHelper.KEY_CURRENCY_CODE}, 
-				DatabaseHelper.KEY_UID + "= '" + accountUID + "'", 
-				null, null, null, null);
-		
-		if (cursor == null)
-			return null;
-        if (cursor.getCount() <= 0) {
-            cursor.close();
-            return null;
-        }
-					
-		cursor.moveToFirst();
-		String currencyCode = cursor.getString(0);
-		cursor.close();
-		return currencyCode;
-	}
-	
 	/**
 	 * Returns the currency code (ISO 4217) used by the account with id <code>accountId</code>
 	 * If you do not have the database record Id, you can call {@link #getAccountID(String)} instead.
@@ -429,26 +404,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		return getAccountID(accountUID) == rowId;
 	}
 
-    /**
-     * Returns the {@link org.gnucash.android.model.AccountType} of the account with unique ID <code>uid</code>
-     * @param accountUID Unique ID of the account
-     * @return {@link org.gnucash.android.model.AccountType} of the account
-     */
-    public AccountType getAccountType(String accountUID){
-        String type = null;
-        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_TYPE},
-                DatabaseHelper.KEY_UID + "='" + accountUID + "'",
-                null, null, null, null);
-        if (c != null) {
-            if (c.moveToFirst()) {
-                type = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
-            }
-            c.close();
-        }
-        return AccountType.valueOf(type);
-    }
-
 	/**
 	 * Marks an account record as exported
 	 * @param accountUID Unique ID of the record to be marked as exported
@@ -483,26 +438,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		}
         c.close();
 		return transactionsList;
-	}
-
-	/**
-	 * Returns an account UID of the account with record id <code>accountRowID</code>
-	 * @param accountRowID Record ID of account as long paramenter
-	 * @return String containing UID of account
-	 */
-	public String getAccountUID(long accountRowID){
-		String uid = null;
-		Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-				new String[]{DatabaseHelper.KEY_UID},
-				DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
-				null, null, null, null);
-		if (c != null) {
-            if (c.moveToFirst()) {
-                uid = c.getString(0);
-            }
-            c.close();
-        }
-		return uid;
 	}
 
     /**

@@ -19,7 +19,7 @@ public class MigrationHelper {
         ContentValues contentValues = new ContentValues();
         contentValues.put(DatabaseHelper.KEY_UID, split.getUID());
         contentValues.put(DatabaseHelper.KEY_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().toPlainString());
+        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().absolute().toPlainString());
         contentValues.put(DatabaseHelper.KEY_TYPE, split.getType().name());
 
         Log.d(LOG_TAG, "Adding new transaction split to db");

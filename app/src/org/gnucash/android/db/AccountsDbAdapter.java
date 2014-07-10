@@ -328,26 +328,6 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 		return getAccount(getId(uid));
 	}	
 	
-	/**
-	 * Returns the unique identifier for the account with record ID <code>id</code>
-	 * @param id Database record id of account
-	 * @return Unique identifier string of the account
-	 */
-	public String getAccountUID(long id){
-		String uid = null;
-		Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME, 
-				new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID}, 
-				DatabaseHelper.KEY_ROW_ID + "=" + id, 
-				null, null, null, null);
-		if (c != null) {
-            if (c.moveToFirst()) {
-                uid = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
-            }
-            c.close();
-        }
-		return uid;
-	}
-
     /**
      * Returns the color code for the account in format #rrggbb
      * @param accountId Database row ID of the account
@@ -367,15 +347,6 @@ public class AccountsDbAdapter extends DatabaseAdapter {
         }
         return colorCode;
     }
-
-	/**
-	 * Returns the {@link AccountType} of the account with unique ID <code>uid</code>
-	 * @param uid Unique ID of the account
-	 * @return {@link AccountType} of the account
-	 */
-	public AccountType getAccountType(String uid){
-        return mTransactionsAdapter.getAccountType(uid);
-	}
 
     /**
      * Overloaded method. Resolves the account unique ID from the row ID and makes a call to {@link #getAccountType(String)}
@@ -518,6 +489,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
      * @return Account Balance of an account including sub-accounts
      */
     public Money getAccountBalance(long accountId){
+        Log.d(TAG, "Computing account balance for account ID " + accountId);
         String currencyCode = getCurrencyCode(accountId);
         currencyCode = currencyCode == null ? Money.DEFAULT_CURRENCY_CODE : currencyCode;
         Money balance = Money.createZeroInstance(currencyCode);
@@ -533,12 +505,10 @@ public class AccountsDbAdapter extends DatabaseAdapter {
             }
         }
 
-        return balance.add( getAccount(accountId).getBalance());
-
-//      properly compute the account balance taking double entry into account
-//      TODO: re-enable this when splits are added
-//        return balance.add(getAccount(accountId).getBalance());
-
+        SplitsDbAdapter splitsDbAdapter = new SplitsDbAdapter(getContext());
+        Money splitSum = splitsDbAdapter.computeSplitBalance(getAccountUID(accountId));
+        splitsDbAdapter.close();
+        return balance.add(splitSum);
     }
 
     /**
@@ -549,12 +519,14 @@ public class AccountsDbAdapter extends DatabaseAdapter {
     public List<Long> getSubAccountIds(long accountId){
         List<Long> subAccounts = new ArrayList<Long>();
         Cursor cursor = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID}, DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " = ?",
-                new String[]{getAccountUID(accountId)}, null, null, null);
+                new String[]{DatabaseHelper.KEY_ROW_ID},
+                DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " = ?",
+                new String[]{getAccountUID(accountId)},
+                null, null, null);
 
         if (cursor != null){
             while (cursor.moveToNext()){
-                subAccounts.add(cursor.getLong(DatabaseAdapter.COLUMN_ROW_ID));
+                subAccounts.add(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID)));
             }
             cursor.close();
         }
@@ -731,16 +703,6 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 	 */
 	public String getCurrencyCode(long id){
 		return mTransactionsAdapter.getCurrencyCode(id);
-	}
-	
-	/**
-	 * Returns the currency code of account with database ID
-	 * @param accountUID Unique Identifier of the account
-	 * @return ISO 4217 currency code of the account
-	 * @see #getCurrencyCode(long) 
-	 */
-	public String getCurrencyCode(String accountUID){
-		return getCurrencyCode(getAccountID(accountUID));
 	}
 
     /**

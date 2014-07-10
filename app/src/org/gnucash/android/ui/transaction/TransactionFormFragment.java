@@ -592,6 +592,8 @@ public class TransactionFormFragment extends SherlockFragment implements
                 mTransaction.setSplits(mSplitsList);
             }
             //TODO: When no double entry is activated, use the imbalance account
+            //this involves creating the imbalance account on demand.
+            // Let's see if we can do without and let GnuCash desktop handle that
 		}
         mTransaction.setCurrencyCode(mAccountsDbAdapter.getCurrencyCode(accountID));
 		mTransaction.setTime(cal.getTimeInMillis());

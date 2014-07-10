@@ -406,7 +406,8 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
                 tramount.setTextColor(getResources().getColor(R.color.credit_green));
 
             TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
-            trNote.setText("Repeats  " + getRecurrenceAsString(cursor.getLong(DatabaseAdapter.COLUMN_RECURRENCE_PERIOD))) ;
+            trNote.setText("Repeats  " +
+                    getRecurrenceAsString(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RECURRENCE_PERIOD)))) ;
 
             String currentAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID));
             int position = cursor.getPosition();

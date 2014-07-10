@@ -21,6 +21,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+import org.gnucash.android.model.AccountType;
 
 /**
  * Adapter to be used for creating and opening the database for read/write operations.
@@ -193,5 +194,70 @@ public abstract class DatabaseAdapter {
      * @return Count of database records which have been deleted
      */
     public abstract int deleteAllRecords();
+
+    /**
+     * Returns the currency code (according to the ISO 4217 standard) of the account
+     * with unique Identifier <code>accountUID</code>
+     * @param accountUID Unique Identifier of the account
+     * @return Currency code of the account
+     */
+    public String getCurrencyCode(String accountUID) {
+        Cursor cursor = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+                new String[] {DatabaseHelper.KEY_CURRENCY_CODE},
+                DatabaseHelper.KEY_UID + "= ?",
+                new String[]{accountUID}, null, null, null);
+
+        if (cursor == null)
+            return null;
+        if (cursor.getCount() <= 0) {
+            cursor.close();
+            return null;
+        }
+
+        cursor.moveToFirst();
+        String currencyCode = cursor.getString(0);
+        cursor.close();
+        return currencyCode;
+    }
+
+    /**
+     * Returns the {@link org.gnucash.android.model.AccountType} of the account with unique ID <code>uid</code>
+     * @param accountUID Unique ID of the account
+     * @return {@link org.gnucash.android.model.AccountType} of the account
+     */
+    public AccountType getAccountType(String accountUID){
+        String type = null;
+        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+                new String[]{DatabaseHelper.KEY_TYPE},
+                DatabaseHelper.KEY_UID + "='" + accountUID + "'",
+                null, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                type = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
+            }
+            c.close();
+        }
+        return AccountType.valueOf(type);
+    }
+
+    /**
+     * Returns an account UID of the account with record id <code>accountRowID</code>
+     * @param accountRowID Record ID of account as long paramenter
+     * @return String containing UID of account
+     */
+    public String getAccountUID(long accountRowID){
+        String uid = null;
+        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+                new String[]{DatabaseHelper.KEY_UID},
+                DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
+                null, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                uid = c.getString(0);
+            }
+            c.close();
+        }
+        return uid;
+    }
 
 }

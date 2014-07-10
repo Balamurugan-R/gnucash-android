@@ -5,8 +5,10 @@ import java.util.UUID;
 /**
  * A split amount in a transaction.
  * Every transaction is made up of at least two splits (representing a double entry transaction)
- * <p>Similar to GnuCash desktop, DEBITs are stored as positive values while CREDITs are negative.
- * However, the actual movement of the balance in the account depends on the type of normal balance the account has.</p>
+ * <p>The split amount is always stored in the database as the absolute value alongside its transaction type of CREDIT/DEBIT<br/>
+ * This is independent of the negative values which are shown in the UI (for user convenience).
+ * The actual movement of the balance in the account depends on the type of normal balance of the account and the
+ * transaction type of the split.</p>
  *
  * @author Ngewi Fet <ngewif@gmail.com>
  */
@@ -102,7 +104,7 @@ public class Split {
     }
 
     public Split createPair(String accountUID){
-        Split pair = new Split(mAmount, accountUID);
+        Split pair = new Split(mAmount.absolute(), accountUID);
         pair.setType(mSplitType.invert());
         pair.setMemo(mMemo);
 

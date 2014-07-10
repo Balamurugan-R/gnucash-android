@@ -219,7 +219,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + KEY_ROW_ID        + " integer primary key autoincrement, "
             + KEY_UID           + " varchar(255) not null, "
             + KEY_AMOUNT 		+ " varchar(255) not null, "
-            + KEY_ACCOUNT_UID 	+ " varchar(255), " //allowed null for single entry and/or imbalance accounts
+            + KEY_ACCOUNT_UID 	+ " varchar(255) not null, "
             + KEY_TRANSACTION_UID   + " varchar(255) not null, "
             + KEY_TYPE 			+ " varchar(255) not null, "
             + KEY_DESCRIPTION 	+ " text, "

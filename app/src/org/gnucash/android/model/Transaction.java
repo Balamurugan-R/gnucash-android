@@ -431,54 +431,62 @@ public class Transaction {
 	 * Converts transaction to XML DOM corresponding to OFX Statement transaction and
 	 * returns the element node for the transaction.
 	 * The Unique ID of the account is needed in order to properly export double entry transactions
-	 * @param doc XML document to which transaction should be added
-	 * @param parentElement The element to which to add this transactions
-     *@param accountUID Unique Identifier of the account which called the method.  @return Element in DOM corresponding to transaction
-	 */
-	public void toOfx(Document doc, Element parentElement, String accountUID){
-        //FIXME: Since splits are not supported by OFX, just use the transaction balance
-        for (Split split : getSplits(accountUID)) {
-            Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
-            Element type = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
-            type.appendChild(doc.createTextNode(getTransactionTypeForAccount(accountUID).toString()));
-            transactionNode.appendChild(type);
+     * @param doc XML document to which transaction should be added
+     * @param accountUID Unique Identifier of the account which called the method.  @return Element in DOM corresponding to transaction
+     */
+	public Element toOfx(Document doc, String accountUID){
+        Money balance = getBalance(accountUID);
+        TransactionType transactionType = balance.isNegative() ? TransactionType.DEBIT : TransactionType.CREDIT;
 
-            Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
-            datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
-            transactionNode.appendChild(datePosted);
+        Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
+        Element typeNode = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
+        typeNode.appendChild(doc.createTextNode(transactionType.toString()));
+        transactionNode.appendChild(typeNode);
 
-            Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
-            dateUser.appendChild(doc.createTextNode(
-                    OfxHelper.getOfxFormattedTime(mTimestamp)));
-            transactionNode.appendChild(dateUser);
+        Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
+        datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
+        transactionNode.appendChild(datePosted);
 
-            Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
-            amount.appendChild(doc.createTextNode(getFormattedAmount(accountUID).formattedString(Locale.US)));
-            transactionNode.appendChild(amount);
+        Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
+        dateUser.appendChild(doc.createTextNode(
+                OfxHelper.getOfxFormattedTime(mTimestamp)));
+        transactionNode.appendChild(dateUser);
 
-            Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
-            transID.appendChild(doc.createTextNode(mUID));
-            transactionNode.appendChild(transID);
+        Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
+        amount.appendChild(doc.createTextNode(balance.toPlainString()));
+        transactionNode.appendChild(amount);
 
-            Element name = doc.createElement(OfxHelper.TAG_NAME);
-            name.appendChild(doc.createTextNode(mName));
-            transactionNode.appendChild(name);
+        Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
+        transID.appendChild(doc.createTextNode(mUID));
+        transactionNode.appendChild(transID);
 
-            if (split.getMemo() != null && split.getMemo().length() > 0) {
-                Element memo = doc.createElement(OfxHelper.TAG_MEMO);
-                memo.appendChild(doc.createTextNode(split.getMemo()));
-                transactionNode.appendChild(memo);
+        Element name = doc.createElement(OfxHelper.TAG_NAME);
+        name.appendChild(doc.createTextNode(mName));
+        transactionNode.appendChild(name);
+
+        if (mDescription != null && mDescription.length() > 0){
+            Element memo = doc.createElement(OfxHelper.TAG_MEMO);
+            memo.appendChild(doc.createTextNode(mDescription));
+            transactionNode.appendChild(memo);
+        }
+
+        if (mSplitList.size() == 2){ //if we have exactly one other split, then treat it like a transfer
+            String transferAccountUID = accountUID;
+            for (Split split : mSplitList) {
+                if (!split.getAccountUID().equals(accountUID)){
+                    transferAccountUID = split.getAccountUID();
+                    break;
+                }
             }
-
             Element bankId = doc.createElement(OfxHelper.TAG_BANK_ID);
             bankId.appendChild(doc.createTextNode(OfxHelper.APP_ID));
 
             Element acctId = doc.createElement(OfxHelper.TAG_ACCOUNT_ID);
-            acctId.appendChild(doc.createTextNode(split.getAccountUID()));
+            acctId.appendChild(doc.createTextNode(transferAccountUID));
 
             Element accttype = doc.createElement(OfxHelper.TAG_ACCOUNT_TYPE);
             AccountsDbAdapter acctDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
-            OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(split.getAccountUID()));
+            OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(transferAccountUID));
             accttype.appendChild(doc.createTextNode(ofxAccountType.toString()));
             acctDbAdapter.close();
 
@@ -488,9 +496,64 @@ public class Transaction {
             bankAccountTo.appendChild(accttype);
 
             transactionNode.appendChild(bankAccountTo);
-
-            parentElement.appendChild(transactionNode);
         }
+
+        return transactionNode;
+
+//        for (Split split : getSplits(accountUID)) {
+//            Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
+//            Element type = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
+//            type.appendChild(doc.createTextNode(getTransactionTypeForAccount(accountUID).toString()));
+//            transactionNode.appendChild(type);
+//
+//            Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
+//            datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
+//            transactionNode.appendChild(datePosted);
+//
+//            Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
+//            dateUser.appendChild(doc.createTextNode(
+//                    OfxHelper.getOfxFormattedTime(mTimestamp)));
+//            transactionNode.appendChild(dateUser);
+//
+//            Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
+//            amount.appendChild(doc.createTextNode(getFormattedAmount(accountUID).formattedString(Locale.US)));
+//            transactionNode.appendChild(amount);
+//
+//            Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
+//            transID.appendChild(doc.createTextNode(mUID));
+//            transactionNode.appendChild(transID);
+//
+//            Element name = doc.createElement(OfxHelper.TAG_NAME);
+//            name.appendChild(doc.createTextNode(mName));
+//            transactionNode.appendChild(name);
+//
+//            if (split.getMemo() != null && split.getMemo().length() > 0) {
+//                Element memo = doc.createElement(OfxHelper.TAG_MEMO);
+//                memo.appendChild(doc.createTextNode(split.getMemo()));
+//                transactionNode.appendChild(memo);
+//            }
+//
+//            Element bankId = doc.createElement(OfxHelper.TAG_BANK_ID);
+//            bankId.appendChild(doc.createTextNode(OfxHelper.APP_ID));
+//
+//            Element acctId = doc.createElement(OfxHelper.TAG_ACCOUNT_ID);
+//            acctId.appendChild(doc.createTextNode(split.getAccountUID()));
+//
+//            Element accttype = doc.createElement(OfxHelper.TAG_ACCOUNT_TYPE);
+//            AccountsDbAdapter acctDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
+//            OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(split.getAccountUID()));
+//            accttype.appendChild(doc.createTextNode(ofxAccountType.toString()));
+//            acctDbAdapter.close();
+//
+//            Element bankAccountTo = doc.createElement(OfxHelper.TAG_BANK_ACCOUNT_TO);
+//            bankAccountTo.appendChild(bankId);
+//            bankAccountTo.appendChild(acctId);
+//            bankAccountTo.appendChild(accttype);
+//
+//            transactionNode.appendChild(bankAccountTo);
+//
+//            parentElement.appendChild(transactionNode);
+//        }
 	}
 
     /**

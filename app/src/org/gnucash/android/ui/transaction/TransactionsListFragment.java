@@ -49,11 +49,10 @@ import com.actionbarsherlock.view.MenuItem;
 import org.gnucash.android.R;
 import org.gnucash.android.db.*;
 import org.gnucash.android.model.Money;
-import org.gnucash.android.model.Transaction;
 import org.gnucash.android.ui.transaction.dialog.BulkMoveDialogFragment;
+import org.gnucash.android.ui.util.AccountBalanceTask;
 import org.gnucash.android.ui.util.Refreshable;
 import org.gnucash.android.ui.UxArgument;
-import org.gnucash.android.ui.account.AccountsListFragment;
 import org.gnucash.android.ui.widget.WidgetConfigurationActivity;
 import org.gnucash.android.ui.util.OnTransactionClickedListener;
 
@@ -191,7 +190,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
 		getLoaderManager().restartLoader(0, null, this);
 
         mSumTextView = (TextView) getView().findViewById(R.id.transactions_sum);
-        new AccountsListFragment.AccountBalanceTask(mSumTextView, getActivity()).execute(mAccountID);
+        new AccountBalanceTask(mSumTextView, getActivity()).execute(mAccountID);
 
 	}
 			
@@ -428,7 +427,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
 				tramount.setTextColor(getResources().getColor(R.color.credit_green));
 			
 			TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
-			String description = cursor.getString(DatabaseAdapter.COLUMN_DESCRIPTION);
+			String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_DESCRIPTION));
 			if (description == null || description.length() == 0)
 				trNote.setVisibility(View.GONE);
 			else {
