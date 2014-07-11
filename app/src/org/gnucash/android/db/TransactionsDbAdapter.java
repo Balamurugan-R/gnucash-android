@@ -141,13 +141,12 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Cursor holding set of transactions for particular account
 	 */
 	public Cursor fetchAllTransactionsForAccount(String accountUID){
-        //TODO: Remove duplicate transactions for multiple splits belonging to the same account
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
         queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
                 + " INNER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
                 + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
                 + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
-
+        queryBuilder.setDistinct(true);
         String[] projectionIn = new String[]{DatabaseHelper.TRANSACTIONS_TABLE_NAME + ".*"};
         String selection = DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID + " = ?"
                 + " AND " + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_RECURRENCE_PERIOD + " = 0";

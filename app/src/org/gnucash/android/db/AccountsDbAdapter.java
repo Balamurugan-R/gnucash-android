@@ -576,7 +576,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
                 + " LEFT OUTER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
                 + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
                 + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
-
+        queryBuilder.setDistinct(true);
         String sortOrder = DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_TIMESTAMP + " DESC";
         Map<String, String> projectionMap = new HashMap<String, String>();
         projectionMap.put(DatabaseHelper.KEY_ACCOUNT_UID, DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID);

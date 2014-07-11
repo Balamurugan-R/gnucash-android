@@ -41,7 +41,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
         long rowId = -1;
         if ((rowId = getID(split.getUID())) > 0){
-            //if transaction already exists, then just update
+            //if split already exists, then just update
             Log.d(TAG, "Updating existing transaction split");
             mDb.update(DatabaseHelper.SPLITS_TABLE_NAME, contentValues,
                     DatabaseHelper.KEY_ROW_ID + " = " + rowId, null);
@@ -119,15 +119,19 @@ public class SplitsDbAdapter extends DatabaseAdapter {
                     switch (transactionType) {
                         case DEBIT:
                             splitSum = splitSum.add(amount);
+                            break;
                         case CREDIT:
                             splitSum = splitSum.subtract(amount);
+                            break;
                     }
                 } else {
                     switch (transactionType) {
                         case DEBIT:
                             splitSum = splitSum.subtract(amount);
+                            break;
                         case CREDIT:
                             splitSum = splitSum.add(amount);
+                            break;
                     }
                 }
             }

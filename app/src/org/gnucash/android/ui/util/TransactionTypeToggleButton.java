@@ -19,6 +19,7 @@ package org.gnucash.android.ui.util;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ToggleButton;
+import org.gnucash.android.R;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.TransactionType;
 
@@ -45,18 +46,19 @@ public class TransactionTypeToggleButton extends ToggleButton {
 
     public void setAccountType(AccountType accountType){
         this.mAccountType = accountType;
+        Context context = getContext().getApplicationContext();
         switch (mAccountType) {
             case CASH:
                 setTextOn("Spend");
                 setTextOff("Receive");
                 break;
             case BANK:
-                setTextOn("Deposit");
-                setTextOff("Withdrawal");
+                setTextOn("Withdrawal");
+                setTextOff("Deposit");
                 break;
             case CREDIT:
-                setTextOn("Charge");
-                setTextOff("Payment");
+                setTextOn("Payment");
+                setTextOff("Charge");
                 break;
             case ASSET:
             case LIABILITY:
@@ -90,8 +92,8 @@ public class TransactionTypeToggleButton extends ToggleButton {
                 break;
             case CURRENCY:
             case ROOT:
-                setTextOn("Debit");
-                setTextOff("Credit");
+                setTextOn(context.getString(R.string.label_debit));
+                setTextOff(context.getString(R.string.label_credit));
                 break;
         }
         setText(isChecked() ? getTextOn() : getTextOff());

@@ -325,7 +325,7 @@ public class TransactionFormFragment extends SherlockFragment implements
                 }
             }
         }
-        mSplitsList = mTransaction.getSplits();
+        mSplitsList = new ArrayList<Split>(mTransaction.getSplits()); //we need a copy so we can modify with impunity
         mAmountEditText.setEnabled(mSplitsList.size() <= 2);
 
 		String currencyCode = mTransactionsDbAdapter.getCurrencyCode(mAccountId);
@@ -542,13 +542,8 @@ public class TransactionFormFragment extends SherlockFragment implements
 		Currency currency = Currency.getInstance(currencyCode);
 		mCurrencyTextView.setText(currency.getSymbol(Locale.getDefault()));
 
-        AccountType previousAccountType = mAccountType;
         mAccountType = accountsDbAdapter.getAccountType(newAccountId);
         mTransactionTypeButton.setAccountType(mAccountType);
-        //if the new account has a different credit/debit philosophy as the previous one, then toggle the button
-        if (mAccountType.hasDebitNormalBalance() != previousAccountType.hasDebitNormalBalance()){
-            mTransactionTypeButton.toggle();
-        }
 
 		updateTransferAccountsList();
 
@@ -572,22 +567,36 @@ public class TransactionFormFragment extends SherlockFragment implements
 		BigDecimal amountBigd = parseInputToDecimal(mAmountEditText.getText().toString());
 
 		long accountID 	= ((TransactionsActivity) getSherlockActivity()).getCurrentAccountID();
+        String accountUID = mAccountsDbAdapter.getAccountUID(accountID);
 		Currency currency = Currency.getInstance(mTransactionsDbAdapter.getCurrencyCode(accountID));
 		Money amount 	= new Money(amountBigd, currency).absolute();
 
 		if (mTransaction != null){
-			mTransaction.setSplits(mSplitsList);
+            if (mSplitsList.size() == 2) {
+                //if it is a simple transfer where the editor was not used, then respect the button
+                for (Split split : mSplitsList) {
+                    if (split.getAccountUID().equals(accountUID)){
+                        split.setType(mTransactionTypeButton.getTransactionType());
+                        split.setAmount(amount.absolute());
+                    } else {
+                        split.setType(mTransactionTypeButton.getTransactionType().invert());
+                    }
+                }
+                mTransaction.setSplits(mSplitsList);
+            }
 			mTransaction.setName(name);
 		} else {
 			mTransaction = new Transaction(name);
             if (mSplitsList.isEmpty()) { //amount entered in the simple interface (not using splits Editor)
-                Split split = new Split(amount, mAccountsDbAdapter.getAccountUID(accountID));
+                Split split = new Split(amount, accountUID);
                 split.setType(mTransactionTypeButton.getTransactionType());
                 mTransaction.addSplit(split);
 
                 long transferAcctId = mDoubleAccountSpinner.getSelectedItemId();
                 String transferAcctUID = mAccountsDbAdapter.getAccountUID(transferAcctId);
-                mTransaction.addSplit(split.createPair(transferAcctUID));
+                if (mUseDoubleEntry) {
+                    mTransaction.addSplit(split.createPair(transferAcctUID));
+                }
             } else { //split editor was used to enter splits
                 mTransaction.setSplits(mSplitsList);
             }
