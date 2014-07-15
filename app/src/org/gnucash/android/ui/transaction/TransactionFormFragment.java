@@ -237,6 +237,25 @@ public class TransactionFormFragment extends SherlockFragment implements
         mAccountId = getArguments().getLong(UxArgument.SELECTED_ACCOUNT_ID);
         mAccountType = mAccountsDbAdapter.getAccountType(mAccountId);
 
+        mDoubleAccountSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                if (mSplitsList.size() == 2){ //when handling simple transfer to one account
+                    for (Split split : mSplitsList) {
+                        if (!split.getAccountUID().equals(mAccountsDbAdapter.getAccountUID(mAccountId))){
+                            split.setAccountUID(mAccountsDbAdapter.getAccountUID(id));
+                        }
+                        // else case is handled when saving the transactions
+                    }
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                //nothing to see here, move along
+            }
+        });
+
         setListeners();
 		if (mTransaction == null)
 			initalizeViews();
@@ -526,7 +545,7 @@ public class TransactionFormFragment extends SherlockFragment implements
                     public void run() {
                         mDoubleAccountSpinner.setSelection(position);
                     }
-                }, 500);
+                }, 200);
 				break;
 			}
 		}
@@ -582,8 +601,8 @@ public class TransactionFormFragment extends SherlockFragment implements
                         split.setType(mTransactionTypeButton.getTransactionType().invert());
                     }
                 }
-                mTransaction.setSplits(mSplitsList);
             }
+            mTransaction.setSplits(mSplitsList);
 			mTransaction.setName(name);
 		} else {
 			mTransaction = new Transaction(name);
@@ -685,6 +704,7 @@ public class TransactionFormFragment extends SherlockFragment implements
         //once we set the split list, do not allow direct editing of the total
         if (mSplitsList.size() > 1){
             mAmountEditText.setEnabled(false);
+            mTransactionTypeButton.setVisibility(View.GONE);
             getView().findViewById(R.id.layout_double_entry).setVisibility(View.GONE);
         }
 

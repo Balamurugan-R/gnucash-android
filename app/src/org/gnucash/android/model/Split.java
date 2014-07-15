@@ -110,4 +110,20 @@ public class Split {
 
         return pair;
     }
+
+    /**
+     * Checks is this <code>other</code> is a pair split of this.
+     * <p>Two splits are considered a pair if they have the same amount and opposite split types</p>
+     * @param other
+     * @return
+     */
+    public boolean isPairOf(Split other) {
+        return mAmount.absolute().equals(other.mAmount.absolute())
+                && mSplitType.invert().equals(other.mSplitType);
+    }
+
+    @Override
+    public String toString() {
+        return mSplitType.name() + " of " + mAmount.toString() + " in account: " + mAccountUID;
+    }
 }

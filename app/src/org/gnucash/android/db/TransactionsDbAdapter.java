@@ -199,7 +199,23 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		c.close();
 		return transactionsList;
 	}
-	
+
+    /**
+     * Returns all transaction instances in the database.
+     * @return List of all transactions
+     */
+    public List<Transaction> getAllTransactions(){
+        Cursor cursor = fetchAllRecords();
+        List<Transaction> transactions = new ArrayList<Transaction>();
+        if (cursor != null){
+            while(cursor.moveToNext()){
+                transactions.add(buildTransactionInstance(cursor));
+            }
+            cursor.close();
+        }
+        return transactions;
+    }
+
 	/**
 	 * Builds a transaction instance with the provided cursor.
 	 * The cursor should already be pointing to the transaction record in the database
@@ -403,21 +419,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		return getAccountID(accountUID) == rowId;
 	}
 
-	/**
-	 * Marks an account record as exported
-	 * @param accountUID Unique ID of the record to be marked as exported
-	 * @return Number of records marked as exported
-	 */
-	public int markAsExported(String accountUID){
-		ContentValues contentValues = new ContentValues();
-		contentValues.put(DatabaseHelper.KEY_EXPORTED, 1);
-		
-		return mDb.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				contentValues, 
-				DatabaseHelper.KEY_ACCOUNT_UID + "='" + accountUID + "'", 
-				null);
-	}
-	
 	/**
 	 * Returns list of all accounts which have not been exported yet
 	 * @return List of {@link Account}s which have not been exported

@@ -18,6 +18,8 @@ package org.gnucash.android.model;
 
 import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.db.AccountsDbAdapter;
+import org.gnucash.android.db.SplitsDbAdapter;
+import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifHelper;
 import org.w3c.dom.Document;
@@ -544,9 +546,11 @@ public class Account {
     /**
      * Exports the account info and transactions in the QIF format
      * @param exportAllTransactions Flag to determine whether to export all transactions, or only new transactions since last export
+     * @param exportedTransactionUIDs List of unique IDs of transactions which have already been exported (in the current session). Used to avoid duplicating splits
      * @return QIF representation of the account information
      */
-    public String toQIF(boolean exportAllTransactions) {
+    public String toQIF(boolean exportAllTransactions, List<String> exportedTransactionUIDs) {
+        //TODO: Fix QIF export
         StringBuilder accountQIFBuilder = new StringBuilder();
         final String newLine = "\n";
 
@@ -564,8 +568,11 @@ public class Account {
         for (Transaction transaction : mTransactionsList) {
             if (!exportAllTransactions && transaction.isExported())
                 continue;
+            if (exportedTransactionUIDs.contains(transaction.getUID()))
+                continue;
 
             accountQIFBuilder.append(transaction.toQIF(mUID) + newLine);
+            exportedTransactionUIDs.add(transaction.getUID());
         }
         return accountQIFBuilder.toString();
     }

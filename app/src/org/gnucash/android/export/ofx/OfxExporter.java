@@ -80,7 +80,7 @@ public class OfxExporter {
 		
 		parent.appendChild(bankmsgs);		
 		
-		TransactionsDbAdapter transactionsDbAdapter = new TransactionsDbAdapter(mContext);
+		AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
 		for (Account account : mAccountsList) {		
 			if (account.getTransactionCount() == 0)
 				continue; 
@@ -89,9 +89,9 @@ public class OfxExporter {
 			account.toOfx(doc, statementTransactionResponse, mExportAll);
 			
 			//mark as exported
-			transactionsDbAdapter.markAsExported(account.getUID());
+			accountsDbAdapter.markAsExported(account.getUID());
 			
 		}
-		transactionsDbAdapter.close();
+		accountsDbAdapter.close();
 	}
 }

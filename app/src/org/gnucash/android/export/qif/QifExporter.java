@@ -19,7 +19,9 @@ import android.content.Context;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.TransactionsDbAdapter;
+import org.gnucash.android.model.Transaction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,17 +44,19 @@ public class QifExporter {
     public String generateQIF(){
         StringBuffer qifBuffer = new StringBuffer();
 
-        TransactionsDbAdapter transactionsDbAdapter = new TransactionsDbAdapter(mContext);
+
+        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
+        List<String> exportedTransactions = new ArrayList<String>();
         for (Account account : mAccountsList) {
             if (account.getTransactionCount() == 0)
                 continue;
 
-            qifBuffer.append(account.toQIF(mExportAll) + "\n");
+            qifBuffer.append(account.toQIF(mExportAll, exportedTransactions) + "\n");
 
             //mark as exported
-            transactionsDbAdapter.markAsExported(account.getUID());
+            accountsDbAdapter.markAsExported(account.getUID());
         }
-        transactionsDbAdapter.close();
+        accountsDbAdapter.close();
 
         return qifBuffer.toString();
     }

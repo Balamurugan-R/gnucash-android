@@ -103,6 +103,32 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 	}
 
     /**
+     * Marks all transactions for a given account as exported
+     * @param accountUID Unique ID of the record to be marked as exported
+     * @return Number of records marked as exported
+     */
+    public int markAsExported(String accountUID){
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DatabaseHelper.KEY_EXPORTED, 1);
+        Cursor cursor = mTransactionsAdapter.fetchAllTransactionsForAccount(accountUID);
+        List<Long> transactionIdList = new ArrayList<Long>();
+        if (cursor != null){
+            while(cursor.moveToNext()){
+                long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+                transactionIdList.add(id);
+            }
+            cursor.close();
+        }
+        int recordsTouched = 0;
+        for (long id : transactionIdList) {
+            recordsTouched += mDb.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
+                    contentValues,
+                    DatabaseHelper.KEY_ROW_ID + "=" + id, null);
+        }
+        return recordsTouched;
+    }
+
+    /**
      * This feature goes through all the rows in the accounts and changes value for <code>columnKey</code> to <code>newValue</code><br/>
      * The <code>newValue</code> parameter is taken as string since SQLite typically stores everything as text.
      * <p><b>This method affects all rows, exercise caution when using it</b></p>
@@ -139,20 +165,14 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise.
 	 */
 	public boolean destructiveDeleteAccount(long rowId){
-		Log.d(TAG, "Delete account with rowId: " + rowId);
-		boolean result = true;
-		//first remove all transactions for the account
-		Cursor c = mTransactionsAdapter.fetchAllTransactionsForAccount(rowId);
-		if (c == null)
-			return false;
-		
-		while (c.moveToNext()){
-			long id = c.getLong(DatabaseAdapter.COLUMN_ROW_ID);
-			result &= mTransactionsAdapter.deleteRecord(id);
-		}
-		result &= deleteRecord(DatabaseHelper.ACCOUNTS_TABLE_NAME, rowId);
-        c.close();
-		return result;
+		Log.d(TAG, "Delete account with rowId and all its associated splits: " + rowId);
+
+        //delete splits in this account
+        mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME,
+                DatabaseHelper.KEY_ACCOUNT_UID + "=?",
+                new String[]{getAccountUID(rowId)});
+
+		return deleteRecord(DatabaseHelper.ACCOUNTS_TABLE_NAME, rowId);
 	}
 
     /**
@@ -183,22 +203,15 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise.
 	 */
 	public boolean transactionPreservingDelete(long accountId, long accountReassignId){
-		Cursor transactionsCursor = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				new String[]{DatabaseHelper.KEY_ACCOUNT_UID}, 
-				DatabaseHelper.KEY_ACCOUNT_UID + " = " + accountId,
-				null, null, null, null);
-		if (transactionsCursor != null && transactionsCursor.getCount() > 0){
-			Log.d(TAG, "Found transactions. Migrating to new account");
-			ContentValues contentValues = new ContentValues();
-			contentValues.put(DatabaseHelper.KEY_ACCOUNT_UID, accountReassignId);
-			mDb.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-					contentValues, 
-					DatabaseHelper.KEY_ACCOUNT_UID + "=" + accountId,
-					null);
-			transactionsCursor.close();
-		}
-		return destructiveDeleteAccount(accountId);
-	}
+        Log.d(TAG, "Migrating transaction splits to new account");
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DatabaseHelper.KEY_ACCOUNT_UID, accountReassignId);
+        mDb.update(DatabaseHelper.SPLITS_TABLE_NAME,
+                contentValues,
+                DatabaseHelper.KEY_ACCOUNT_UID + "=?",
+                new String[]{getAccountUID(accountId)});
+        return destructiveDeleteAccount(accountId);
+    }
 
     /**
      * Deletes an account and all its sub-accounts and transactions with it
@@ -849,11 +862,13 @@ public class AccountsDbAdapter extends DatabaseAdapter {
     }
 
 	/**
-	 * Deletes all accounts and their transactions from the database
+	 * Deletes all accounts and their transactions (and their splits) from the database.
+     * Basically empties all 3 tables, so use with care ;)
 	 */
     @Override
 	public int deleteAllRecords(){
 		mDb.delete(DatabaseHelper.TRANSACTIONS_TABLE_NAME, null, null);
+        mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME, null, null);
         return mDb.delete(DatabaseHelper.ACCOUNTS_TABLE_NAME, null, null);
 	}
 

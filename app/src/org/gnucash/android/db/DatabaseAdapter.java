@@ -152,7 +152,8 @@ public abstract class DatabaseAdapter {
 	}
 
 	/**
-	 * Deletes record with ID <code>rowID</code> from database table <code>tableName</code> 
+	 * Deletes record with ID <code>rowID</code> from database table <code>tableName</code>
+     * This does not delete the transactions and splits associated with the account
 	 * @param tableName Name of table in database
 	 * @param rowId ID of record to be deleted
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise

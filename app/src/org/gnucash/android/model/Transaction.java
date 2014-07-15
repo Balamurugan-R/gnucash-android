@@ -25,6 +25,7 @@ import org.gnucash.android.model.Account.OfxAccountType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
@@ -216,6 +217,35 @@ public class Transaction {
      */
     public Money getBalance(String accountUID){
         return computeBalance(accountUID, mSplitList);
+    }
+
+    /**
+     * Computes the imbalance amount for the given transaction.
+     * In double entry, all transactions should resolve to zero. However a user may not enter all such values which
+     * means there is an extra amount which is unresolved.
+     * @return Money imbalance of the transaction
+     */
+    public Money getImbalance(){
+        Money imbalance = Money.createZeroInstance(mCurrencyCode);
+        Money biggestSplit = imbalance;
+
+        //if we have just a split pair, then there is no imbalance
+        if (mSplitList.size() == 2){
+            if (mSplitList.get(0).isPairOf(mSplitList.get(1)))
+                return imbalance;
+        }
+
+        for (Split split : mSplitList) {
+            if (biggestSplit.compareTo(split.getAmount()) < 0)
+                biggestSplit = split.getAmount();
+        }
+
+        for (Split split : mSplitList) {
+            if (split.getAmount().equals(biggestSplit))
+                continue;
+            imbalance = imbalance.add(split.getAmount());
+        }
+        return biggestSplit.subtract(imbalance);
     }
 
     /**
@@ -499,67 +529,11 @@ public class Transaction {
         }
 
         return transactionNode;
-
-//        for (Split split : getSplits(accountUID)) {
-//            Element transactionNode = doc.createElement(OfxHelper.TAG_STATEMENT_TRANSACTION);
-//            Element type = doc.createElement(OfxHelper.TAG_TRANSACTION_TYPE);
-//            type.appendChild(doc.createTextNode(getTransactionTypeForAccount(accountUID).toString()));
-//            transactionNode.appendChild(type);
-//
-//            Element datePosted = doc.createElement(OfxHelper.TAG_DATE_POSTED);
-//            datePosted.appendChild(doc.createTextNode(OfxHelper.getOfxFormattedTime(mTimestamp)));
-//            transactionNode.appendChild(datePosted);
-//
-//            Element dateUser = doc.createElement(OfxHelper.TAG_DATE_USER);
-//            dateUser.appendChild(doc.createTextNode(
-//                    OfxHelper.getOfxFormattedTime(mTimestamp)));
-//            transactionNode.appendChild(dateUser);
-//
-//            Element amount = doc.createElement(OfxHelper.TAG_TRANSACTION_AMOUNT);
-//            amount.appendChild(doc.createTextNode(getFormattedAmount(accountUID).formattedString(Locale.US)));
-//            transactionNode.appendChild(amount);
-//
-//            Element transID = doc.createElement(OfxHelper.TAG_TRANSACTION_FITID);
-//            transID.appendChild(doc.createTextNode(mUID));
-//            transactionNode.appendChild(transID);
-//
-//            Element name = doc.createElement(OfxHelper.TAG_NAME);
-//            name.appendChild(doc.createTextNode(mName));
-//            transactionNode.appendChild(name);
-//
-//            if (split.getMemo() != null && split.getMemo().length() > 0) {
-//                Element memo = doc.createElement(OfxHelper.TAG_MEMO);
-//                memo.appendChild(doc.createTextNode(split.getMemo()));
-//                transactionNode.appendChild(memo);
-//            }
-//
-//            Element bankId = doc.createElement(OfxHelper.TAG_BANK_ID);
-//            bankId.appendChild(doc.createTextNode(OfxHelper.APP_ID));
-//
-//            Element acctId = doc.createElement(OfxHelper.TAG_ACCOUNT_ID);
-//            acctId.appendChild(doc.createTextNode(split.getAccountUID()));
-//
-//            Element accttype = doc.createElement(OfxHelper.TAG_ACCOUNT_TYPE);
-//            AccountsDbAdapter acctDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
-//            OfxAccountType ofxAccountType = Account.convertToOfxAccountType(acctDbAdapter.getAccountType(split.getAccountUID()));
-//            accttype.appendChild(doc.createTextNode(ofxAccountType.toString()));
-//            acctDbAdapter.close();
-//
-//            Element bankAccountTo = doc.createElement(OfxHelper.TAG_BANK_ACCOUNT_TO);
-//            bankAccountTo.appendChild(bankId);
-//            bankAccountTo.appendChild(acctId);
-//            bankAccountTo.appendChild(accttype);
-//
-//            transactionNode.appendChild(bankAccountTo);
-//
-//            parentElement.appendChild(transactionNode);
-//        }
 	}
 
     /**
      * Builds a QIF entry representing this transaction
      * @return String QIF representation of this transaction
-     * @param accountUID Unique Identifier of the account from which method was called
      */
     public String toQIF(String accountUID){
         final String newLine = "\n";
@@ -570,26 +544,57 @@ public class Transaction {
         String imbalanceAccountName = QifHelper.getImbalanceAccountName(Currency.getInstance(mCurrencyCode));
 
         StringBuilder transactionQIFBuilder = new StringBuilder();
-        for (Split split : getSplits(accountUID)) {
 
-            transactionQIFBuilder.append(QifHelper.DATE_PREFIX).append(QifHelper.formatDate(mTimestamp)).append(newLine);
-            transactionQIFBuilder.append(QifHelper.MEMO_PREFIX).append(mName).append(newLine);
+        transactionQIFBuilder.append(QifHelper.DATE_PREFIX).append(QifHelper.formatDate(mTimestamp)).append(newLine);
+        transactionQIFBuilder.append(QifHelper.MEMO_PREFIX).append(mName).append(newLine);
 
-            String accountName = imbalanceAccountName;
-            if (split.getAccountUID() != null){
-                accountName = accountsDbAdapter.getFullyQualifiedAccountName(split.getAccountUID());
+
+        final List<Split> splitList = getSplits();
+        for (Split split : splitList) {
+            if (split.getAccountUID().equals(accountUID) && splitList.size() <= 2)
+                continue;
+
+            String splitAccountName = accountsDbAdapter.getFullyQualifiedAccountName(split.getAccountUID());
+            transactionQIFBuilder.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(splitAccountName).append(newLine);
+
+            String memo = split.getMemo();
+            if (memo != null && memo.length() > 0) {
+                transactionQIFBuilder.append(QifHelper.SPLIT_MEMO_PREFIX).append(memo).append(newLine);
             }
-            transactionQIFBuilder.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(accountName).append(newLine);
+            Money amount = split.getAmount();
+            if (split.getType() == TransactionType.DEBIT)
+                amount = amount.negate();
 
-            if (mDescription != null && mDescription.length() > 0){
-                transactionQIFBuilder.append(QifHelper.SPLIT_MEMO_PREFIX).append(mDescription).append(newLine);
-            }
-            transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(split.getAmount().asString()).append(newLine);
+            transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(amount.asString()).append(newLine);
         }
+        Money imbalanceAmount = getImbalance();
+        if (imbalanceAmount.asBigDecimal().compareTo(new BigDecimal(0)) != 0){
+            //add imbalance amounts here
+            transactionQIFBuilder.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(imbalanceAccountName).append(newLine);
+            transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(imbalanceAmount.asString()).append(newLine);
+        }
+
         transactionQIFBuilder.append(QifHelper.ENTRY_TERMINATOR).append(newLine);
 
         accountsDbAdapter.close();
         return transactionQIFBuilder.toString();
+    }
+
+    /**
+     * Searches a list of splits to find a corresponding pair to <code>split</code>.
+     * A split is considered a pair if they have the same amount and opposite transaction types.
+     * This <code>splitList</code> typically contains splits from the same transaction.
+     * @param split {@link Split} for which to find pair
+     * @param splitList List of splits
+     * @return
+     * */
+    public static Split findPair(Split split, final List<Split> splitList){
+        for (Split splitEntry : splitList) {
+            boolean isPair = split.isPairOf(splitEntry);
+            if (isPair)
+                return splitEntry;
+        }
+        return null;
     }
 
     /**
