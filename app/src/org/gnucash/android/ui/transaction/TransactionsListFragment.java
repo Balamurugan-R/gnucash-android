@@ -58,7 +58,6 @@ import org.gnucash.android.ui.util.OnTransactionClickedListener;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Locale;
 
 /**
  * List Fragment for displaying list of transactions for an account
@@ -149,7 +148,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
 		mCursorAdapter = new TransactionsCursorAdapter(
 				getActivity().getApplicationContext(), 
 				R.layout.list_item_transaction, null, 
-				new String[] {DatabaseHelper.KEY_NAME},
+				new String[] {DatabaseSchema.TransactionEntry.COLUMN_NAME},
 				new int[] {R.id.primary_text});
 		setListAdapter(mCursorAdapter);
 	}
@@ -415,19 +414,13 @@ public class TransactionsListFragment extends SherlockListFragment implements
 		public void bindView(View view, Context context, Cursor cursor) {
 			super.bindView(view, context, cursor);
 
-            long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+            long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry._ID));
 			Money amount = mTransactionsDbAdapter.getBalance(transactionId, mAccountID);
+			TextView amountTextView = (TextView) view.findViewById(R.id.transaction_amount);
+            TransactionsActivity.displayBalance(amountTextView, amount);
 
-			TextView tramount = (TextView) view.findViewById(R.id.transaction_amount);
-			tramount.setText(amount.formattedString(Locale.getDefault()));
-						
-			if (amount.isNegative())
-				tramount.setTextColor(getResources().getColor(R.color.debit_red));
-			else
-				tramount.setTextColor(getResources().getColor(R.color.credit_green));
-			
 			TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
-			String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_DESCRIPTION));
+			String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_DESCRIPTION));
 			if (description == null || description.length() == 0)
 				trNote.setVisibility(View.GONE);
 			else {
@@ -446,7 +439,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
          * @see #isSameDay(long, long)
          */
         private void setSectionHeaderVisibility(View view, Cursor cursor) {
-            long transactionTime = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP));
+            long transactionTime = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_TIMESTAMP));
             int position = cursor.getPosition();
 
             boolean hasSectionHeader;
@@ -454,7 +447,7 @@ public class TransactionsListFragment extends SherlockListFragment implements
                 hasSectionHeader = true;
             } else {
                 cursor.moveToPosition(position - 1);
-                long previousTimestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP));
+                long previousTimestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_TIMESTAMP));
                 cursor.moveToPosition(position);
                 //has header if two consecutive transactions were not on same day
                 hasSectionHeader = !isSameDay(previousTimestamp, transactionTime);

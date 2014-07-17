@@ -126,4 +126,35 @@ public class Split {
     public String toString() {
         return mSplitType.name() + " of " + mAmount.toString() + " in account: " + mAccountUID;
     }
+
+    /**
+     * Returns a string representation of the split which can be parsed again using {@link org.gnucash.android.model.Split#parseSplit(String)}
+     * @return
+     */
+    public String toCsv(){
+        String splitString = mAmount.toString() + ";" + mAmount.getCurrency().getCurrencyCode() + ";"
+                + mAccountUID + ";" + mSplitType.name();
+        if (mMemo != null){
+            splitString = splitString + ";" + mMemo;
+        }
+        return splitString;
+    }
+
+    /**
+     * Parses a split which is in the format "<amount>;<currency_code>;<account_uid>;<type>;<memo>".
+     * The split input string is the same produced by the {@link Split#toCsv()} method
+     *
+     * @param splitString String containing formatted split
+     * @return Split instance parsed from the string
+     */
+    public static Split parseSplit(String splitString) {
+        String[] tokens = splitString.split(";");
+        Money amount = new Money(tokens[0], tokens[1]);
+        Split split = new Split(amount, tokens[2]);
+        split.setType(TransactionType.valueOf(tokens[3]));
+        if (tokens.length == 5){
+            split.setMemo(tokens[4]);
+        }
+        return split;
+    }
 }

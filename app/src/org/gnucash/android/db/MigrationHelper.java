@@ -6,6 +6,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Split;
+import static org.gnucash.android.db.DatabaseSchema.AccountEntry;
+import static org.gnucash.android.db.DatabaseSchema.TransactionEntry;
+import static org.gnucash.android.db.DatabaseSchema.SplitEntry;
 
 /**
  * Date: 23.03.2014
@@ -17,13 +20,13 @@ public class MigrationHelper {
 
     public static boolean addSplit(SQLiteDatabase db, Split split){
         ContentValues contentValues = new ContentValues();
-        contentValues.put(DatabaseHelper.KEY_UID, split.getUID());
-        contentValues.put(DatabaseHelper.KEY_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().absolute().toPlainString());
-        contentValues.put(DatabaseHelper.KEY_TYPE, split.getType().name());
+        contentValues.put(SplitEntry.COLUMN_UID, split.getUID());
+        contentValues.put(SplitEntry.COLUMN_TRANSACTION_UID, split.getTransactionUID());
+        contentValues.put(SplitEntry.COLUMN_AMOUNT, split.getAmount().absolute().toPlainString());
+        contentValues.put(SplitEntry.COLUMN_TYPE, split.getType().name());
 
         Log.d(LOG_TAG, "Adding new transaction split to db");
-        long rowId = db.insert(DatabaseHelper.SPLITS_TABLE_NAME, null, contentValues);
+        long rowId = db.insert(DatabaseSchema.SplitEntry.TABLE_NAME, null, contentValues);
         return rowId > 0;
     }
 
@@ -34,10 +37,10 @@ public class MigrationHelper {
      * @return Currency code of the account
      */
     public static String getCurrencyCode(SQLiteDatabase db, String accountUID) {
-        Cursor cursor = db.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_CURRENCY_CODE},
-                DatabaseHelper.KEY_UID + "= '" + accountUID + "'",
-                null, null, null, null);
+        Cursor cursor = db.query(AccountEntry.TABLE_NAME,
+                new String[] {AccountEntry.COLUMN_CURRENCY},
+                AccountEntry.COLUMN_UID + "= ?",
+                new String[]{accountUID}, null, null, null);
 
         if (cursor == null || cursor.getCount() <= 0)
             return null;
@@ -60,8 +63,8 @@ public class MigrationHelper {
         ContentValues contentValues = new ContentValues();
         contentValues.put(columnKey, newValue);
 
-        return db.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME, contentValues,
-                DatabaseHelper.KEY_UID + "= ?", new String[]{transactionUID});
+        return db.update(TransactionEntry.TABLE_NAME, contentValues,
+                TransactionEntry.COLUMN_UID + "= ?", new String[]{transactionUID});
     }
 
     /**
@@ -75,27 +78,27 @@ public class MigrationHelper {
      */
     static String getFullyQualifiedAccountName(SQLiteDatabase db, String accountUID){
         //get the parent account UID of the account
-        Cursor cursor = db.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_PARENT_ACCOUNT_UID},
-                DatabaseHelper.KEY_UID + " = ?",
+        Cursor cursor = db.query(AccountEntry.TABLE_NAME,
+                new String[] {AccountEntry.COLUMN_PARENT_ACCOUNT_UID},
+                AccountEntry.COLUMN_UID + " = ?",
                 new String[]{accountUID},
                 null, null, null, null);
 
         String parentAccountUID = null;
         if (cursor != null && cursor.moveToFirst()){
-            parentAccountUID = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PARENT_ACCOUNT_UID));
+            parentAccountUID = cursor.getString(cursor.getColumnIndexOrThrow(AccountEntry.COLUMN_PARENT_ACCOUNT_UID));
             cursor.close();
         }
 
         //get the name of the account
-        cursor = db.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_NAME},
-                DatabaseHelper.KEY_UID + " = '" + accountUID + "'",
-                null, null, null, null);
+        cursor = db.query(AccountEntry.TABLE_NAME,
+                new String[]{AccountEntry.COLUMN_NAME},
+                AccountEntry.COLUMN_UID + " = ?",
+                new String[]{accountUID}, null, null, null);
 
         String accountName = null;
         if (cursor != null && cursor.moveToFirst()){
-            accountName = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_NAME));
+            accountName = cursor.getString(cursor.getColumnIndexOrThrow(AccountEntry.COLUMN_NAME));
             cursor.close();
         }
 
@@ -120,13 +123,13 @@ public class MigrationHelper {
      * @return Unique ID of the GnuCash root account.
      */
     private static String getGnuCashRootAccountUID(SQLiteDatabase db){
-        String condition = DatabaseHelper.KEY_TYPE + "= '" + AccountType.ROOT.name() + "'";
-        Cursor cursor =  db.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
+        String condition = AccountEntry.COLUMN_TYPE + "= '" + AccountType.ROOT.name() + "'";
+        Cursor cursor =  db.query(DatabaseSchema.AccountEntry.TABLE_NAME,
                 null, condition, null, null, null,
-                DatabaseHelper.KEY_NAME + " ASC");
+                AccountEntry.COLUMN_NAME + " ASC");
         String rootUID = null;
         if (cursor != null && cursor.moveToFirst()){
-            rootUID = cursor.getString(DatabaseAdapter.COLUMN_UID);
+            rootUID = cursor.getString(cursor.getColumnIndexOrThrow(AccountEntry.COLUMN_UID));
             cursor.close();
         }
         return rootUID;

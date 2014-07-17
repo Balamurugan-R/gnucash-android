@@ -27,11 +27,8 @@ import android.app.PendingIntent;
 import android.support.v4.app.FragmentManager;
 import android.widget.*;
 import org.gnucash.android.R;
-import org.gnucash.android.db.SplitsDbAdapter;
+import org.gnucash.android.db.*;
 import org.gnucash.android.model.*;
-import org.gnucash.android.db.AccountsDbAdapter;
-import org.gnucash.android.db.DatabaseHelper;
-import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.ui.transaction.dialog.DatePickerDialogFragment;
 import org.gnucash.android.ui.transaction.dialog.SplitEditorDialogFragment;
 import org.gnucash.android.ui.transaction.dialog.TimePickerDialogFragment;
@@ -271,7 +268,7 @@ public class TransactionFormFragment extends SherlockFragment implements
      */
     private void initTransactionNameAutocomplete() {
         final int[] to = new int[]{android.R.id.text1};
-        final String[] from = new String[]{DatabaseHelper.KEY_NAME};
+        final String[] from = new String[]{DatabaseSchema.TransactionEntry.COLUMN_NAME};
 
         SimpleCursorAdapter adapter = new SimpleCursorAdapter(
                 getActivity(), android.R.layout.simple_dropdown_item_1line,
@@ -280,7 +277,7 @@ public class TransactionFormFragment extends SherlockFragment implements
         adapter.setCursorToStringConverter(new SimpleCursorAdapter.CursorToStringConverter() {
             @Override
             public CharSequence convertToString(Cursor cursor) {
-                final int colIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_NAME);
+                final int colIndex = cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_NAME);
                 return cursor.getString(colIndex);
             }
         });
@@ -412,10 +409,10 @@ public class TransactionFormFragment extends SherlockFragment implements
 	private void updateTransferAccountsList(){
 		long accountId = ((TransactionsActivity)getActivity()).getCurrentAccountID();
 
-		String conditions = "(" + DatabaseHelper.KEY_ROW_ID + " != " + accountId + " AND "
-							+ DatabaseHelper.KEY_CURRENCY_CODE + " = '" + mAccountsDbAdapter.getCurrencyCode(accountId)
-                            + "' AND " + DatabaseHelper.KEY_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
-                            + "' AND " + DatabaseHelper.KEY_PLACEHOLDER + " = 0"
+		String conditions = "(" + DatabaseSchema.AccountEntry._ID + " != " + accountId + " AND "
+							+ DatabaseSchema.AccountEntry.COLUMN_CURRENCY + " = '" + mAccountsDbAdapter.getCurrencyCode(accountId)
+                            + "' AND " + DatabaseSchema.AccountEntry.COLUMN_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
+                            + "' AND " + DatabaseSchema.AccountEntry.COLUMN_PLACEHOLDER + " = 0"
                             + ")";
 
         if (mCursor != null) {

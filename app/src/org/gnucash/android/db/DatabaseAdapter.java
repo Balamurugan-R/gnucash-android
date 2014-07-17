@@ -34,37 +34,7 @@ public abstract class DatabaseAdapter {
 	/**
 	 * Tag for logging
 	 */
-	protected static final String TAG = "DatabaseAdapter";
-	
-	//Column indices for the various columns in the database tables
-	//row_id, uid, name and type are common to both tables 	
-	public static final int COLUMN_ROW_ID 	= 0;
-	public static final int COLUMN_UID 		= 1;
-	public static final int COLUMN_NAME 	= 2;
-	public static final int COLUMN_TYPE 	= 3;
-	
-	//columns indices specific to transactions
-	public static final int COLUMN_DESCRIPTION 	= 2;
-	public static final int COLUMN_TIMESTAMP 	= 3;
-	public static final int COLUMN_EXPORTED 	= 5;
-    public static final int COLUMN_CURRENCY_CODE= 6;
-    public static final int COLUMN_RECURRENCE_PERIOD = 7;
-	
-	//columns indices specific to accounts
-	public static final int COLUMN_ACCOUNT_CURRENCY     = 4;
-	public static final int COLUMN_PARENT_ACCOUNT_UID   = 5;
-    public static final int COLUMN_PLACEHOLDER          = 6;
-    public static final int COLUMN_DEFAULT_TRANSFER_ACCOUNT_UID = 7;
-    public static final int COLUMN_COLOR_CODE           = 8;
-	public static final int COLUMN_FAVORITE             = 9;
-    public static final int COLUMN_FULL_NAME            = 10;
-
-    //column indices specific to splits
-    public static final int COLUMN_SPLIT_AMOUNT         = 2;
-    public static final int COLUMN_SPLIT_ACCOUNT_UID    = 3;
-    public static final int COLUMN_SPLIT_TRANSX_UID     = 4;
-    public static final int COLUMN_SPLIT_TYPE           = 5;
-    public static final int COLUMN_SPLIT_MEMO           = 6;
+	protected static final String TAG = DatabaseAdapter.class.getName();
 
 	/**
 	 * {@link DatabaseHelper} for creating and opening the database
@@ -137,7 +107,7 @@ public abstract class DatabaseAdapter {
 	 * @return {@link Cursor} to record retrieved
 	 */
 	protected Cursor fetchRecord(String tableName, long rowId){
-		return mDb.query(tableName, null, DatabaseHelper.KEY_ROW_ID + "=" + rowId, 
+		return mDb.query(tableName, null, DatabaseSchema.CommonColumns._ID + "=" + rowId,
 				null, null, null, null);
 	}
 	
@@ -159,7 +129,7 @@ public abstract class DatabaseAdapter {
 	 * @return <code>true</code> if deletion was successful, <code>false</code> otherwise
 	 */
 	protected boolean deleteRecord(String tableName, long rowId){
-		return mDb.delete(tableName, DatabaseHelper.KEY_ROW_ID + "=" + rowId, null) > 0;
+		return mDb.delete(tableName, DatabaseSchema.CommonColumns._ID + "=" + rowId, null) > 0;
 	}
 
     /**
@@ -203,9 +173,9 @@ public abstract class DatabaseAdapter {
      * @return Currency code of the account
      */
     public String getCurrencyCode(String accountUID) {
-        Cursor cursor = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_CURRENCY_CODE},
-                DatabaseHelper.KEY_UID + "= ?",
+        Cursor cursor = mDb.query(DatabaseSchema.AccountEntry.TABLE_NAME,
+                new String[] {DatabaseSchema.AccountEntry.COLUMN_CURRENCY},
+                DatabaseSchema.AccountEntry.COLUMN_UID + "= ?",
                 new String[]{accountUID}, null, null, null);
 
         if (cursor == null)
@@ -228,13 +198,13 @@ public abstract class DatabaseAdapter {
      */
     public AccountType getAccountType(String accountUID){
         String type = null;
-        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_TYPE},
-                DatabaseHelper.KEY_UID + "='" + accountUID + "'",
-                null, null, null, null);
+        Cursor c = mDb.query(DatabaseSchema.AccountEntry.TABLE_NAME,
+                new String[]{DatabaseSchema.AccountEntry.COLUMN_TYPE},
+                DatabaseSchema.AccountEntry.COLUMN_UID + "=?",
+                new String[]{accountUID}, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
-                type = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
+                type = c.getString(c.getColumnIndexOrThrow(DatabaseSchema.AccountEntry.COLUMN_TYPE));
             }
             c.close();
         }
@@ -248,9 +218,9 @@ public abstract class DatabaseAdapter {
      */
     public String getAccountUID(long accountRowID){
         String uid = null;
-        Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_ROW_ID + "=" + accountRowID,
+        Cursor c = mDb.query(DatabaseSchema.AccountEntry.TABLE_NAME,
+                new String[]{DatabaseSchema.AccountEntry.COLUMN_UID},
+                DatabaseSchema.CommonColumns._ID + "=" + accountRowID,
                 null, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
@@ -259,6 +229,26 @@ public abstract class DatabaseAdapter {
             c.close();
         }
         return uid;
+    }
+
+    /**
+     * Returns the database row Id of the account with unique Identifier <code>accountUID</code>
+     * @param accountUID Unique identifier of the account
+     * @return Database row ID of the account
+     */
+    public long getAccountID(String accountUID){
+        long id = -1;
+        Cursor c = mDb.query(DatabaseSchema.AccountEntry.TABLE_NAME,
+                new String[]{DatabaseSchema.AccountEntry._ID},
+                DatabaseSchema.AccountEntry.COLUMN_UID + "= ?",
+                new String[]{accountUID}, null, null, null);
+        if (c != null) {
+            if (c.moveToFirst()) {
+                id = c.getLong(0);
+            }
+            c.close();
+        }
+        return id;
     }
 
 }

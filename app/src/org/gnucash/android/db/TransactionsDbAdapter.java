@@ -23,10 +23,9 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 import org.gnucash.android.model.*;
+import static org.gnucash.android.db.DatabaseSchema.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Currency;
 import java.util.List;
 
 /**
@@ -63,22 +62,22 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
 	public long addTransaction(Transaction transaction){
 		ContentValues contentValues = new ContentValues();
-		contentValues.put(DatabaseHelper.KEY_NAME, transaction.getName());
-		contentValues.put(DatabaseHelper.KEY_UID, transaction.getUID());
-		contentValues.put(DatabaseHelper.KEY_TIMESTAMP, transaction.getTimeMillis());
-		contentValues.put(DatabaseHelper.KEY_DESCRIPTION, transaction.getDescription());
-		contentValues.put(DatabaseHelper.KEY_EXPORTED, transaction.isExported() ? 1 : 0);
-		contentValues.put(DatabaseHelper.KEY_RECURRENCE_PERIOD, transaction.getRecurrencePeriod());
-        contentValues.put(DatabaseHelper.KEY_CURRENCY_CODE, transaction.getCurrencyCode());
+		contentValues.put(TransactionEntry.COLUMN_NAME,         transaction.getName());
+		contentValues.put(TransactionEntry.COLUMN_UID,          transaction.getUID());
+		contentValues.put(TransactionEntry.COLUMN_TIMESTAMP,    transaction.getTimeMillis());
+		contentValues.put(TransactionEntry.COLUMN_DESCRIPTION,  transaction.getDescription());
+		contentValues.put(TransactionEntry.COLUMN_EXPORTED,     transaction.isExported() ? 1 : 0);
+        contentValues.put(TransactionEntry.COLUMN_CURRENCY,     transaction.getCurrencyCode());
+        contentValues.put(TransactionEntry.COLUMN_RECURRENCE_PERIOD, transaction.getRecurrencePeriod());
 
 		long rowId = -1;
 		if ((rowId = fetchTransactionWithUID(transaction.getUID())) > 0){
 			//if transaction already exists, then just update
 			Log.d(TAG, "Updating existing transaction");
-			mDb.update(DatabaseHelper.TRANSACTIONS_TABLE_NAME, contentValues, DatabaseHelper.KEY_ROW_ID + " = " + rowId, null);
+			mDb.update(TransactionEntry.TABLE_NAME, contentValues, TransactionEntry._ID + " = " + rowId, null);
 		} else {
 			Log.d(TAG, "Adding new transaction to db");
-			rowId = mDb.insert(DatabaseHelper.TRANSACTIONS_TABLE_NAME, null, contentValues);
+			rowId = mDb.insert(TransactionEntry.TABLE_NAME, null, contentValues);
 		}	
 
         if (rowId > 0){
@@ -97,15 +96,15 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Database row ID of transaction with UID <code>uid</code>
 	 */
 	public long fetchTransactionWithUID(String uid){
-		Cursor cursor = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				new String[] {DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID}, 
-				DatabaseHelper.KEY_UID + " = '" + uid + "'", 
-				null, null, null, null);
+		Cursor cursor = mDb.query(TransactionEntry.TABLE_NAME,
+				new String[] {TransactionEntry._ID},
+                TransactionEntry.COLUMN_UID + " = ?",
+				new String[]{uid}, null, null, null);
 		long result = -1;
 		if (cursor != null) {
             if (cursor.moveToFirst()) {
                 Log.d(TAG, "Transaction already exists. Returning existing id");
-                result = cursor.getLong(0); //0 because only one row was requested
+                result = cursor.getLong(cursor.getColumnIndexOrThrow(TransactionEntry._ID)); //0 because only one row was requested
             }
             cursor.close();
         }
@@ -123,7 +122,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		
 		Log.v(TAG, "Fetching transaction with id " + rowId);
         Transaction transaction = null;
-		Cursor c =	fetchRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, rowId);
+		Cursor c =	fetchRecord(TransactionEntry.TABLE_NAME, rowId);
 		if (c != null) {
             if (c.moveToFirst()) {
                 transaction = buildTransactionInstance(c);
@@ -142,16 +141,16 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
 	public Cursor fetchAllTransactionsForAccount(String accountUID){
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
-        queryBuilder.setTables(DatabaseHelper.TRANSACTIONS_TABLE_NAME
-                + " INNER JOIN " +  DatabaseHelper.SPLITS_TABLE_NAME + " ON "
-                + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_UID + " = "
-                + DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_TRANSACTION_UID);
+        queryBuilder.setTables(TransactionEntry.TABLE_NAME
+                + " INNER JOIN " +  SplitEntry.TABLE_NAME + " ON "
+                + TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_UID + " = "
+                + SplitEntry.TABLE_NAME + "." + SplitEntry.COLUMN_TRANSACTION_UID);
         queryBuilder.setDistinct(true);
-        String[] projectionIn = new String[]{DatabaseHelper.TRANSACTIONS_TABLE_NAME + ".*"};
-        String selection = DatabaseHelper.SPLITS_TABLE_NAME + "." + DatabaseHelper.KEY_ACCOUNT_UID + " = ?"
-                + " AND " + DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_RECURRENCE_PERIOD + " = 0";
+        String[] projectionIn = new String[]{TransactionEntry.TABLE_NAME + ".*"};
+        String selection = SplitEntry.TABLE_NAME + "." + SplitEntry.COLUMN_ACCOUNT_UID + " = ?"
+                + " AND " + TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_RECURRENCE_PERIOD + " = 0";
         String[] selectionArgs = new String[]{accountUID};
-        String sortOrder = DatabaseHelper.TRANSACTIONS_TABLE_NAME + "." + DatabaseHelper.KEY_TIMESTAMP + " DESC";
+        String sortOrder = TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_TIMESTAMP + " DESC";
 
         return queryBuilder.query(mDb, projectionIn, selection, selectionArgs, null, null, sortOrder);
 	}
@@ -163,12 +162,12 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      * @return Cursor holding set of all recurring transactions
      */
     public Cursor fetchAllRecurringTransactions(){
-        Cursor cursor = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
+        Cursor cursor = mDb.query(TransactionEntry.TABLE_NAME,
                 null,
-                DatabaseHelper.KEY_RECURRENCE_PERIOD + "!= 0",
+                TransactionEntry.COLUMN_RECURRENCE_PERIOD + "!= 0",
                 null, null, null,
-                DatabaseHelper.KEY_ACCOUNT_UID + " ASC, " + DatabaseHelper.KEY_RECURRENCE_PERIOD + " ASC");
-//                DatabaseHelper.KEY_RECURRENCE_PERIOD + " ASC, " + DatabaseHelper.KEY_TIMESTAMP + " DESC");
+                AccountEntry.COLUMN_NAME + " ASC, " + TransactionEntry.COLUMN_RECURRENCE_PERIOD + " ASC");
+//                DatabaseHelper.COLUMN_RECURRENCE_PERIOD + " ASC, " + DatabaseHelper.COLUMN_TIMESTAMP + " DESC");
         return cursor;
     }
 
@@ -223,17 +222,17 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return {@link Transaction} object constructed from database record
 	 */
 	public Transaction buildTransactionInstance(Cursor c){
-		String name   = c.getString(DatabaseAdapter.COLUMN_NAME);
-        long recurrencePeriod = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_RECURRENCE_PERIOD));
-		
+		String name   = c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_NAME));
 		Transaction transaction = new Transaction(name);
-		transaction.setUID(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_UID)));
-		transaction.setTime(c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_TIMESTAMP)));
-		transaction.setDescription(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_DESCRIPTION)));
-		transaction.setExported(c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.KEY_EXPORTED)) == 1);
+		transaction.setUID(c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_UID)));
+		transaction.setTime(c.getLong(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_TIMESTAMP)));
+		transaction.setDescription(c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_DESCRIPTION)));
+		transaction.setExported(c.getInt(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_EXPORTED)) == 1);
+
+        long recurrencePeriod = c.getLong(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_RECURRENCE_PERIOD));
         transaction.setRecurrencePeriod(recurrencePeriod);
-        transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_CURRENCY_CODE)));
-        long transactionID = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+        transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_CURRENCY)));
+        long transactionID = c.getLong(c.getColumnIndexOrThrow(TransactionEntry._ID));
         transaction.setSplits(mSplitsDbAdapter.getSplitsForTransaction(transactionID));
 
 		return transaction;
@@ -274,13 +273,13 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      */
     public String getUID(long transactionId){
         String uid = null;
-        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_ROW_ID + "=" + transactionId,
+        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{TransactionEntry.COLUMN_UID},
+                TransactionEntry._ID + "=" + transactionId,
                 null, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
-                uid = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
+                uid = c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_UID));
             }
             c.close();
         }
@@ -296,7 +295,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	public boolean deleteRecord(long rowId){
 		Log.d(TAG, "Delete transaction with record Id: " + rowId);
 		return mSplitsDbAdapter.deleteSplitsForTransaction(rowId) &&
-                deleteRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, rowId);
+                deleteRecord(TransactionEntry.TABLE_NAME, rowId);
 	}
 	
 	/**
@@ -314,7 +313,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
     @Override
 	public int deleteAllRecords(){
-		return deleteAllRecords(DatabaseHelper.TRANSACTIONS_TABLE_NAME);
+		return deleteAllRecords(TransactionEntry.TABLE_NAME);
 	}
 	
 	/**
@@ -360,55 +359,12 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 * @return Number of transaction in the database
 	 */
 	public long getAllTransactionsCount(){
-		String sql = "SELECT COUNT(*) FROM " + DatabaseHelper.TRANSACTIONS_TABLE_NAME;		
+		String sql = "SELECT COUNT(*) FROM " + TransactionEntry.TABLE_NAME;
 		SQLiteStatement statement = mDb.compileStatement(sql);
         return statement.simpleQueryForLong();
 	}
 	
-	/**
-	 * Returns the sum of transactions belonging to the account with id <code>accountId</code>
-     * Double entry accounting is taken into account and the balance reflects the transfer transactions.
-	 * @param accountId Record ID of the account
-	 * @return Sum of transactions belonging to the account
-	 */
-	public Money getTransactionsSum(long accountId) {
-        //FIXME: Properly compute the balance for splits
-        String accountUID = getAccountUID(accountId);
 
-        String querySum = "SELECT TOTAL(" + DatabaseHelper.KEY_AMOUNT
-                + ") FROM " + DatabaseHelper.TRANSACTIONS_TABLE_NAME
-                + " WHERE " + DatabaseHelper.KEY_ACCOUNT_UID + " = ? AND "
-                + DatabaseHelper.KEY_RECURRENCE_PERIOD + "=0";
-
-        Cursor sumCursor = mDb.rawQuery(querySum, new String[]{accountUID});
-        double sum = 0d;
-
-        if (sumCursor != null) {
-            if (sumCursor.moveToFirst()) {
-                sum += sumCursor.getFloat(0);
-            }
-            sumCursor.close();
-        }
-
-        querySum = "SELECT TOTAL(" + DatabaseHelper.KEY_AMOUNT
-                + ") FROM " + DatabaseHelper.TRANSACTIONS_TABLE_NAME
-                + " WHERE " + DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID + " = ? AND "
-                + DatabaseHelper.KEY_RECURRENCE_PERIOD + "=0";
-
-        sumCursor = mDb.rawQuery(querySum, new String[]{accountUID});
-
-        if (sumCursor != null) {
-            if (sumCursor.moveToFirst()) {
-                sum -= sumCursor.getFloat(0);
-            }
-            sumCursor.close();
-        }
-
-        BigDecimal sumDecimal = new BigDecimal(sum);
-        Currency currency = Currency.getInstance(getCurrencyCode(accountUID));
-        return new Money(sumDecimal, currency);
-	}
-	
 	/**
 	 * Returns true if <code>rowId</code> and <code>accountUID</code> belong to the same account
 	 * @param rowId Database record ID
@@ -419,36 +375,16 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 		return getAccountID(accountUID) == rowId;
 	}
 
-	/**
-	 * Returns list of all accounts which have not been exported yet
-	 * @return List of {@link Account}s which have not been exported
-	 */
-	public List<Transaction> getNonExportedTransactionsForAccount(String accountUID){
-		Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME, 
-				null, 
-				DatabaseHelper.KEY_EXPORTED + "= 0 AND " + 
-				DatabaseHelper.KEY_ACCOUNT_UID + "= '" + accountUID + "'", 
-				null, null, null, null);
-		ArrayList<Transaction> transactionsList = new ArrayList<Transaction>();
-		if (c == null)
-			return transactionsList;
-		
-		while (c.moveToNext()){
-			transactionsList.add(buildTransactionInstance(c));
-		}
-        c.close();
-		return transactionsList;
-	}
-
     /**
      * Returns Unique Identifier of account to which <code>transaction</code> belongs
      * @param transactionID Record ID of the transaction
      * @return Unique Identifier string of account to which transaction belongs
      */
     public String getAccountUidFromTransaction(long transactionID){
-        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ACCOUNT_UID},
-                DatabaseHelper.KEY_ROW_ID + "=" + transactionID,
+        //TODO: get rid of this method
+        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{SplitEntry.COLUMN_ACCOUNT_UID},
+                TransactionEntry._ID + "=" + transactionID,
                 null, null, null, null);
         String accountUID = null;
         if (c != null) {
@@ -460,26 +396,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
         return accountUID;
     }
 
-	/**
-	 * Returns the database row Id of the account with unique Identifier <code>accountUID</code>
-	 * @param accountUID Unique identifier of the account
-	 * @return Database row ID of the account
-	 */
-	public long getAccountID(String accountUID){
-		long id = -1;
-		Cursor c = mDb.query(DatabaseHelper.ACCOUNTS_TABLE_NAME, 
-				new String[]{DatabaseHelper.KEY_ROW_ID}, 
-				DatabaseHelper.KEY_UID + "='" + accountUID + "'", 
-				null, null, null, null);
-		if (c != null) {
-            if (c.moveToFirst()) {
-                id = c.getLong(0);
-            }
-            c.close();
-        }
-		return id;
-	}
-
     /**
      * Returns the database record ID for the specified transaction UID
      * @param transactionUID Unique idendtifier of the transaction
@@ -487,9 +403,9 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      */
     public long getID(String transactionUID){
         long id = -1;
-        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID},
-                DatabaseHelper.KEY_UID + "='" + transactionUID + "'",
+        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{TransactionEntry._ID},
+                TransactionEntry.COLUMN_UID + "='" + transactionUID + "'",
                 null, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
@@ -502,12 +418,12 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 
     @Override
     public Cursor fetchAllRecords() {
-        return fetchAllRecords(DatabaseHelper.TRANSACTIONS_TABLE_NAME);
+        return fetchAllRecords(TransactionEntry.TABLE_NAME);
     }
 
     @Override
     public Cursor fetchRecord(long rowId) {
-        return fetchRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, rowId);
+        return fetchRecord(TransactionEntry.TABLE_NAME, rowId);
     }
 
     /**
@@ -517,15 +433,15 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      * @return Cursor to the data set containing all matching transactions
      */
     public Cursor fetchTransactionsStartingWith(String prefix){
-        StringBuffer stringBuffer = new StringBuffer(DatabaseHelper.KEY_NAME)
+        StringBuffer stringBuffer = new StringBuffer(TransactionEntry.COLUMN_NAME)
                 .append(" LIKE '").append(prefix).append("%'");
         String selection = stringBuffer.toString();
 
-        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_NAME},
+        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{TransactionEntry._ID, TransactionEntry.COLUMN_NAME},
                 selection,
                 null, null, null,
-                DatabaseHelper.KEY_NAME);
+                TransactionEntry.COLUMN_NAME);
         return c;
     }
 }

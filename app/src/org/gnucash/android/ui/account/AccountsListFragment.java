@@ -210,7 +210,7 @@ public class AccountsListFragment extends SherlockListFragment implements
         mAccountsCursorAdapter = new AccountsCursorAdapter(
                 getActivity().getApplicationContext(),
                 R.layout.list_item_account, null,
-                new String[]{DatabaseHelper.KEY_NAME},
+                new String[]{DatabaseSchema.AccountEntry.COLUMN_NAME},
                 new int[]{R.id.primary_text});
 
         setListAdapter(mAccountsCursorAdapter);
@@ -631,7 +631,7 @@ public class AccountsListFragment extends SherlockListFragment implements
 
             if (mFilter != null){
                 cursor = ((AccountsDbAdapter)mDatabaseAdapter)
-                        .fetchAccounts(DatabaseHelper.KEY_NAME + " LIKE '%" + mFilter + "%'");
+                        .fetchAccounts(DatabaseSchema.AccountEntry.COLUMN_NAME + " LIKE '%" + mFilter + "%'");
             } else {
                 if (mParentAccountId > 0)
                     cursor = ((AccountsDbAdapter) mDatabaseAdapter).fetchSubAccounts(mParentAccountId);
@@ -682,7 +682,7 @@ public class AccountsListFragment extends SherlockListFragment implements
             // perform the default binding
             super.bindView(v, context, cursor);
 
-            final long accountId = cursor.getLong(DatabaseAdapter.COLUMN_ROW_ID);
+            final long accountId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.AccountEntry._ID));
 
             TextView subAccountTextView = (TextView) v.findViewById(R.id.secondary_text);
             int subAccountCount = mAccountsDbAdapter.getSubAccountCount(accountId);
@@ -699,7 +699,7 @@ public class AccountsListFragment extends SherlockListFragment implements
             new AccountBalanceTask(accountBalanceTextView, getActivity()).execute(accountId);
 
             View colorStripView = v.findViewById(R.id.account_color_strip);
-            String accountColor = cursor.getString(DatabaseAdapter.COLUMN_COLOR_CODE);
+            String accountColor = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.AccountEntry.COLUMN_COLOR_CODE));
             if (accountColor != null){
                 int color = Color.parseColor(accountColor);
                 colorStripView.setBackgroundColor(color);

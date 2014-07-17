@@ -64,6 +64,13 @@ public class Transaction {
     public static final String EXTRA_TRANSACTION_TYPE = "org.gnucash.android.extra.transaction_type";
 
     /**
+     * Argument key for passing splits as comma-separated multi-line list and each line is a split.
+     * The line format is: <type>;<amount>;<account_uid>
+     * The amount should be formatted in the US Locale
+     */
+    public static final String EXTRA_SPLITS = "org.gnucash.android.extra.splits";
+
+    /**
      * Currency used by splits in this transaction
      */
     private String mCurrencyCode = Money.DEFAULT_CURRENCY_CODE;
@@ -537,7 +544,7 @@ public class Transaction {
      */
     public String toQIF(String accountUID){
         final String newLine = "\n";
-
+        //TODO: QIF is properly generated, but GnuCash does not handle the import well for multiple (>2) splits
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
 
         //all transactions are double transactions

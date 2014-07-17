@@ -3,6 +3,7 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Money;
@@ -12,6 +13,8 @@ import org.gnucash.android.model.TransactionType;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.gnucash.android.db.DatabaseSchema.*;
+
 /**
  * Database adapter for managing transaction splits in the database
  *
@@ -19,7 +22,7 @@ import java.util.List;
  */
 public class SplitsDbAdapter extends DatabaseAdapter {
 
-    private static final String LOG_TAG = "SplitsDbAdapter";
+    protected static final String TAG = "SplitsDbAdapter";
 
     public SplitsDbAdapter(Context context){
         super(context);
@@ -33,21 +36,21 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public long addSplit(Split split){
         ContentValues contentValues = new ContentValues();
-        contentValues.put(DatabaseHelper.KEY_UID, split.getUID());
-        contentValues.put(DatabaseHelper.KEY_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(DatabaseHelper.KEY_AMOUNT, split.getAmount().absolute().toPlainString());
-        contentValues.put(DatabaseHelper.KEY_TYPE, split.getType().name());
-        contentValues.put(DatabaseHelper.KEY_ACCOUNT_UID, split.getAccountUID());
+        contentValues.put(SplitEntry.COLUMN_UID, split.getUID());
+        contentValues.put(SplitEntry.COLUMN_TRANSACTION_UID, split.getTransactionUID());
+        contentValues.put(SplitEntry.COLUMN_AMOUNT, split.getAmount().absolute().toPlainString());
+        contentValues.put(SplitEntry.COLUMN_TYPE, split.getType().name());
+        contentValues.put(SplitEntry.COLUMN_ACCOUNT_UID, split.getAccountUID());
 
         long rowId = -1;
         if ((rowId = getID(split.getUID())) > 0){
             //if split already exists, then just update
             Log.d(TAG, "Updating existing transaction split");
-            mDb.update(DatabaseHelper.SPLITS_TABLE_NAME, contentValues,
-                    DatabaseHelper.KEY_ROW_ID + " = " + rowId, null);
+            mDb.update(SplitEntry.TABLE_NAME, contentValues,
+                    SplitEntry._ID + " = " + rowId, null);
         } else {
             Log.d(TAG, "Adding new transaction split to db");
-            rowId = mDb.insert(DatabaseHelper.SPLITS_TABLE_NAME, null, contentValues);
+            rowId = mDb.insert(SplitEntry.TABLE_NAME, null, contentValues);
         }
 
         return rowId;
@@ -60,11 +63,11 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return {@link org.gnucash.android.model.Split} instance
      */
     public Split buildSplitInstance(Cursor cursor){
-        String uid          = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
-        String amountString = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_AMOUNT));
-        String typeName     = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
-        String accountUID   = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID));
-        String transxUID    = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TRANSACTION_UID));
+        String uid          = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_UID));
+        String amountString = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_AMOUNT));
+        String typeName     = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TYPE));
+        String accountUID   = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_ACCOUNT_UID));
+        String transxUID    = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TRANSACTION_UID));
 
         String currencyCode = getCurrencyCode(accountUID);
         Money amount = new Money(amountString, currencyCode);
@@ -109,8 +112,8 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
         if (cursor != null){
             while(cursor.moveToNext()){
-                String amountString = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_AMOUNT));
-                String typeString = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_TYPE));
+                String amountString = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_AMOUNT));
+                String typeString = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TYPE));
 
                 TransactionType transactionType = TransactionType.valueOf(typeString);
                 Money amount = new Money(amountString, currencyCode);
@@ -193,7 +196,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return Cursor to split records
      */
     public Cursor fetchSplits(String condition, String sortOrder){
-        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
+        return mDb.query(SplitEntry.TABLE_NAME,
                 null, condition, null, null, null, sortOrder);
     }
 
@@ -203,13 +206,13 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return Database record ID of split
      */
     public long getID(String uid){
-        Cursor cursor = mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                new String[] {DatabaseHelper.KEY_ROW_ID},
-                DatabaseHelper.KEY_UID + " = ?", new String[]{uid}, null, null, null);
+        Cursor cursor = mDb.query(SplitEntry.TABLE_NAME,
+                new String[] {SplitEntry._ID},
+                SplitEntry.COLUMN_UID + " = ?", new String[]{uid}, null, null, null);
         long result = -1;
         if (cursor != null && cursor.moveToFirst()){
             Log.d(TAG, "Transaction already exists. Returning existing id");
-            result = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ROW_ID));
+            result = cursor.getLong(cursor.getColumnIndexOrThrow(SplitEntry._ID));
 
             cursor.close();
         }
@@ -222,13 +225,15 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return String unique identifier of the split
      */
     public String getUID(long id){
-        Cursor cursor = mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_ROW_ID + " = " + id, null, null, null, null);
+        Cursor cursor = mDb.query(SplitEntry.TABLE_NAME,
+                new String[]{SplitEntry.COLUMN_UID},
+                SplitEntry._ID + " = " + id, null, null, null, null);
+
         String uid = null;
-        if (cursor != null && cursor.moveToFirst()){
-            Log.d(TAG, "Transaction already exists. Returning existing id");
-            uid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
+        if (cursor != null){
+            if (cursor.moveToFirst()) {
+                uid = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_UID));
+            }
             cursor.close();
         }
         return uid;
@@ -241,8 +246,8 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public Cursor fetchSplitsForTransaction(String transactionUID){
         Log.v(TAG, "Fetching all splits for transaction UID " + transactionUID);
-        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                null, DatabaseHelper.KEY_TRANSACTION_UID + " = ?",
+        return mDb.query(SplitEntry.TABLE_NAME,
+                null, SplitEntry.COLUMN_TRANSACTION_UID + " = ?",
                 new String[]{transactionUID},
                 null, null, null);
     }
@@ -254,10 +259,23 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public Cursor fetchSplitsForAccount(String accountUID){
         Log.d(TAG, "Fetching all splits for account UID " + accountUID);
-        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                null, DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
-                new String[]{accountUID},
-                null, null, null);
+
+        //This is more complicated than a simple "where account_uid=?" query because
+        // we need to *not* return any splits which belong to recurring transactions
+        SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
+        queryBuilder.setTables(TransactionEntry.TABLE_NAME
+                + " INNER JOIN " +  SplitEntry.TABLE_NAME + " ON "
+                + TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_UID + " = "
+                + SplitEntry.TABLE_NAME + "." + SplitEntry.COLUMN_TRANSACTION_UID);
+        queryBuilder.setDistinct(true);
+        String[] projectionIn = new String[]{SplitEntry.TABLE_NAME + ".*"};
+        String selection = SplitEntry.TABLE_NAME + "." + SplitEntry.COLUMN_ACCOUNT_UID + " = ?"
+                + " AND " + TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_RECURRENCE_PERIOD + " = 0";
+        String[] selectionArgs = new String[]{accountUID};
+        String sortOrder = TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_TIMESTAMP + " DESC";
+
+        return queryBuilder.query(mDb, projectionIn, selection, selectionArgs, null, null, sortOrder);
+
     }
 
     /**
@@ -269,11 +287,11 @@ public class SplitsDbAdapter extends DatabaseAdapter {
     public Cursor fetchSplitsForTransactionAndAccount(String transactionUID, String accountUID){
         Log.v(TAG, "Fetching all splits for transaction ID " + transactionUID
                 + "and account ID " + accountUID);
-        return mDb.query(DatabaseHelper.SPLITS_TABLE_NAME,
-                null, DatabaseHelper.KEY_TRANSACTION_UID + " = ? AND "
-                + DatabaseHelper.KEY_ACCOUNT_UID + " = ?",
+        return mDb.query(SplitEntry.TABLE_NAME,
+                null, SplitEntry.COLUMN_TRANSACTION_UID + " = ? AND "
+                + SplitEntry.COLUMN_ACCOUNT_UID + " = ?",
                 new String[]{transactionUID, accountUID},
-                null, null, DatabaseHelper.KEY_AMOUNT + " ASC");
+                null, null, SplitEntry.COLUMN_AMOUNT + " ASC");
     }
 
     /**
@@ -282,14 +300,14 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @return String unique ID of the transaction or null if transaction with the ID cannot be found.
      */
     public String getTransactionUID(long transactionId){
-        Cursor cursor = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID, DatabaseHelper.KEY_UID},
-                DatabaseHelper.KEY_ROW_ID + " = " + transactionId,
+        Cursor cursor = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{TransactionEntry.COLUMN_UID},
+                TransactionEntry._ID + " = " + transactionId,
                 null, null, null, null);
 
         String trxUID = null;
         if (cursor != null && cursor.moveToFirst()){
-            trxUID = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_UID));
+            trxUID = cursor.getString(cursor.getColumnIndexOrThrow(TransactionEntry.COLUMN_UID));
         }
 
         return trxUID;
@@ -297,18 +315,18 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
     @Override
     public Cursor fetchRecord(long rowId) {
-        return fetchRecord(DatabaseHelper.SPLITS_TABLE_NAME, rowId);
+        return fetchRecord(SplitEntry.TABLE_NAME, rowId);
     }
 
     @Override
     public Cursor fetchAllRecords() {
-        return fetchAllRecords(DatabaseHelper.SPLITS_TABLE_NAME);
+        return fetchAllRecords(SplitEntry.TABLE_NAME);
     }
 
     @Override
     public boolean deleteRecord(long rowId) {
         String transactionUID = getSplit(getUID(rowId)).getTransactionUID();
-        boolean result = deleteRecord(DatabaseHelper.SPLITS_TABLE_NAME, rowId);
+        boolean result = deleteRecord(SplitEntry.TABLE_NAME, rowId);
 
         //if we just deleted the last split, then remove the transaction from db
         Cursor cursor = fetchSplitsForTransaction(transactionUID);
@@ -328,10 +346,10 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public long getTransactionID(String transactionUID){
         long id = -1;
-        Cursor c = mDb.query(DatabaseHelper.TRANSACTIONS_TABLE_NAME,
-                new String[]{DatabaseHelper.KEY_ROW_ID},
-                DatabaseHelper.KEY_UID + "='" + transactionUID + "'",
-                null, null, null, null);
+        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
+                new String[]{TransactionEntry._ID},
+                TransactionEntry.COLUMN_UID + "=?",
+                new String[]{transactionUID}, null, null, null);
         if (c != null) {
             if (c.moveToFirst()) {
                 id = c.getLong(0);
@@ -348,8 +366,8 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public boolean deleteSplitsForTransaction(long transactionId){
         String trxUID = getTransactionUID(transactionId);
-        boolean result = mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME,
-                DatabaseHelper.KEY_TRANSACTION_UID + "=?",
+        boolean result = mDb.delete(SplitEntry.TABLE_NAME,
+                SplitEntry.COLUMN_TRANSACTION_UID + "=?",
                 new String[]{trxUID}) > 0;
         result &= deleteTransaction(transactionId);
         return result;
@@ -364,9 +382,8 @@ public class SplitsDbAdapter extends DatabaseAdapter {
     public int deleteSplitsForTransactionAndAccount(long transactionId, long accountId){
         String transactionUID  = getTransactionUID(transactionId);
         String accountUID      = getAccountUID(accountId);
-        int deletedCount = mDb.delete(DatabaseHelper.SPLITS_TABLE_NAME,
-                DatabaseHelper.KEY_TRANSACTION_UID + "= ? AND "
-                + DatabaseHelper.KEY_ACCOUNT_UID + "= ?",
+        int deletedCount = mDb.delete(SplitEntry.TABLE_NAME,
+                SplitEntry.COLUMN_TRANSACTION_UID + "= ? AND " + SplitEntry.COLUMN_ACCOUNT_UID + "= ?",
                 new String[]{transactionUID, accountUID});
         deleteTransaction(transactionId);
         return deletedCount;
@@ -377,11 +394,11 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      * @param transactionId Database record ID of the transaction
      */
     private boolean deleteTransaction(long transactionId) {
-        return deleteRecord(DatabaseHelper.TRANSACTIONS_TABLE_NAME, transactionId);
+        return deleteRecord(TransactionEntry.TABLE_NAME, transactionId);
     }
 
     @Override
     public int deleteAllRecords() {
-        return deleteAllRecords(DatabaseHelper.SPLITS_TABLE_NAME);
+        return deleteAllRecords(SplitEntry.TABLE_NAME);
     }
 }

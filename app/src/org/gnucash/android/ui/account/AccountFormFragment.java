@@ -41,6 +41,7 @@ import com.actionbarsherlock.view.MenuItem;
 import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseHelper;
+import org.gnucash.android.db.DatabaseSchema;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Money;
@@ -515,9 +516,9 @@ public class AccountFormFragment extends SherlockFragment {
      * Initializes the default transfer account spinner with eligible accounts
      */
     private void loadDefaultTransferAccountList(){
-        String condition = DatabaseHelper.KEY_ROW_ID + " != " + mSelectedAccountId
-                + " AND " + DatabaseHelper.KEY_PLACEHOLDER + "=0"
-                + " AND " + DatabaseHelper.KEY_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID() + "'";
+        String condition = DatabaseSchema.AccountEntry._ID + " != " + mSelectedAccountId
+                + " AND " + DatabaseSchema.AccountEntry.COLUMN_PLACEHOLDER + "=0"
+                + " AND " + DatabaseSchema.AccountEntry.COLUMN_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID() + "'";
         /*
       Cursor holding data set of eligible transfer accounts
      */
@@ -540,14 +541,14 @@ public class AccountFormFragment extends SherlockFragment {
      * @param accountType AccountType of account whose allowed parent list is to be loaded
      */
 	private void loadParentAccountList(AccountType accountType){
-        String condition = DatabaseHelper.KEY_TYPE + " IN ("
+        String condition = DatabaseSchema.SplitEntry.COLUMN_TYPE + " IN ("
                 + getAllowedParentAccountTypes(accountType) + ") ";
 
         if (mAccount != null){  //if editing an account
             // limit cyclic account hierarchies. Still technically possible since we don't forbid descendant accounts
-            condition += " AND (" + DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " IS NULL "
-                    + " OR " + DatabaseHelper.KEY_PARENT_ACCOUNT_UID + " != '" + mAccount.getUID() + "')"
-                    + " AND " + DatabaseHelper.KEY_ROW_ID + " != " + mSelectedAccountId;
+            condition += " AND (" + DatabaseSchema.AccountEntry.COLUMN_PARENT_ACCOUNT_UID + " IS NULL "
+                    + " OR " + DatabaseSchema.AccountEntry.COLUMN_PARENT_ACCOUNT_UID + " != '" + mAccount.getUID() + "')"
+                    + " AND " + DatabaseSchema.AccountEntry._ID + " != " + mSelectedAccountId;
 
             //TODO: Limit all descendants of the account to eliminate the possibility of cyclic hierarchy
         }

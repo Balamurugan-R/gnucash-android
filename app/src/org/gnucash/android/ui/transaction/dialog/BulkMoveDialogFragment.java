@@ -19,6 +19,7 @@ package org.gnucash.android.ui.transaction.dialog;
 import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseHelper;
+import org.gnucash.android.db.DatabaseSchema;
 import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.ui.UxArgument;
 import org.gnucash.android.ui.transaction.TransactionsActivity;
@@ -105,10 +106,10 @@ public class BulkMoveDialogFragment extends DialogFragment {
 		getDialog().setTitle(title);
 		
 		mAccountsDbAdapter = new AccountsDbAdapter(getActivity());
-        String conditions = "(" + DatabaseHelper.KEY_ROW_ID + " != " + mOriginAccountId + " AND "
-                + DatabaseHelper.KEY_CURRENCY_CODE + " = '" + mAccountsDbAdapter.getCurrencyCode(mOriginAccountId)
-                + "' AND " + DatabaseHelper.KEY_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
-                + "' AND " + DatabaseHelper.KEY_PLACEHOLDER + " = 0"
+        String conditions = "(" + DatabaseSchema.AccountEntry._ID           + " != " + mOriginAccountId + " AND "
+                + DatabaseSchema.AccountEntry.COLUMN_CURRENCY               + " = '" + mAccountsDbAdapter.getCurrencyCode(mOriginAccountId)
+                + "' AND " + DatabaseSchema.AccountEntry.COLUMN_UID         + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
+                + "' AND " + DatabaseSchema.AccountEntry.COLUMN_PLACEHOLDER + " = 0"
                 + ")";
 		Cursor cursor = mAccountsDbAdapter.fetchAccountsOrderedByFullName(conditions);
 

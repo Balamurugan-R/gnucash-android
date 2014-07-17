@@ -46,8 +46,6 @@ import org.gnucash.android.db.*;
 import org.gnucash.android.ui.UxArgument;
 import org.gnucash.android.ui.widget.WidgetConfigurationActivity;
 
-import java.util.Locale;
-
 /**
  * Fragment which displays the recurring transactions in the system.
  * @author Ngewi Fet <ngewif@gmail.com>
@@ -134,8 +132,8 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         mCursorAdapter = new TransactionsCursorAdapter(
                 getActivity().getApplicationContext(),
                 R.layout.list_item_transaction, null,
-                new String[] {DatabaseHelper.KEY_NAME, DatabaseHelper.KEY_AMOUNT},
-                new int[] {R.id.primary_text, R.id.transaction_amount});
+                new String[] {DatabaseSchema.TransactionEntry.COLUMN_NAME},
+                new int[] {R.id.primary_text});
         setListAdapter(mCursorAdapter);
     }
 
@@ -187,6 +185,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
             return;
         }
         //else
+        //TODO: get the account UID using some other means. Or don't display account names at all
         String accountUID = mTransactionsDbAdapter.getAccountUidFromTransaction(id);
         long accountID = mTransactionsDbAdapter.getAccountID(accountUID);
 
@@ -391,25 +390,18 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         public void bindView(View view, Context context, Cursor cursor) {
             super.bindView(view, context, cursor);
             AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(getActivity());
-            long accountID = accountsDbAdapter.getAccountID(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID)));
+            long accountID = accountsDbAdapter.getAccountID(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID)));
 
-            Money amount = new Money(
-                    cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_AMOUNT)),
-                    mTransactionsDbAdapter.getCurrencyCode(accountID));
-
-            TextView tramount = (TextView) view.findViewById(R.id.transaction_amount);
-            tramount.setText(amount.formattedString(Locale.getDefault()));
-
-            if (amount.isNegative())
-                tramount.setTextColor(getResources().getColor(R.color.debit_red));
-            else
-                tramount.setTextColor(getResources().getColor(R.color.credit_green));
+            long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry._ID));
+            Money amount = mTransactionsDbAdapter.getBalance(transactionId, accountID);
+            TextView amountTextView = (TextView) view.findViewById(R.id.transaction_amount);
+            TransactionsActivity.displayBalance(amountTextView, amount);
 
             TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
-            trNote.setText("Repeats  " +
-                    getRecurrenceAsString(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RECURRENCE_PERIOD)))) ;
+            trNote.setText("Repeats  " + //TODO: Internationalize "Repeats"
+                    getRecurrenceAsString(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_RECURRENCE_PERIOD)))) ;
 
-            String currentAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID));
+            String currentAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID));
             int position = cursor.getPosition();
             boolean hasSectionHeader;
 
@@ -417,7 +409,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
                 hasSectionHeader = true;
             } else {
                 cursor.moveToPosition(position - 1);
-                String previousAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ACCOUNT_UID));
+                String previousAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID));
                 cursor.moveToPosition(position);
 
                 hasSectionHeader = !previousAccountUid.equals(currentAccountUid);

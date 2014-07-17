@@ -29,6 +29,7 @@ import android.widget.*;
 import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseHelper;
+import org.gnucash.android.db.DatabaseSchema;
 import org.gnucash.android.db.SplitsDbAdapter;
 import org.gnucash.android.model.*;
 import org.gnucash.android.ui.UxArgument;
@@ -168,10 +169,10 @@ public class SplitEditorDialogFragment extends DialogFragment {
         mAccountUID     = mAccountsDbAdapter.getAccountUID(mAccountId);
         mBaseAmount     = new BigDecimal(args.getString(UxArgument.AMOUNT_STRING));
 
-        String conditions = "(" //+ DatabaseHelper.KEY_ROW_ID + " != " + mAccountId + " AND "
-                + DatabaseHelper.KEY_CURRENCY_CODE + " = '" + mAccountsDbAdapter.getCurrencyCode(mAccountId)
-                + "' AND " + DatabaseHelper.KEY_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
-                + "' AND " + DatabaseHelper.KEY_PLACEHOLDER + " = 0"
+        String conditions = "(" //+ AccountEntry._ID + " != " + mAccountId + " AND "
+                + DatabaseSchema.AccountEntry.COLUMN_CURRENCY + " = '" + mAccountsDbAdapter.getCurrencyCode(mAccountId)
+                + "' AND " + DatabaseSchema.AccountEntry.COLUMN_UID + " != '" + mAccountsDbAdapter.getGnuCashRootAccountUID()
+                + "' AND " + DatabaseSchema.AccountEntry.COLUMN_PLACEHOLDER + " = 0"
                 + ")";
         mCursor = mAccountsDbAdapter.fetchAccountsOrderedByFullName(conditions);
     }
