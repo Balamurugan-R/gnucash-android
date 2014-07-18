@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Ngewi Fet <ngewif@gmail.com>
+ * Copyright (c) 2012 - 2014 Ngewi Fet <ngewif@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,12 +35,12 @@ import java.util.Currency;
  * Broadcast receiver responsible for creating transactions received through {@link Intent}s
  * In order to create a transaction through Intents, broadcast an intent with the arguments needed to 
  * create the transaction. Transactions are strongly bound to {@link Account}s and it is recommended to 
- * create an Account for your transactions. The transactions will be associated to the account using a unique
- * Identifier passed as {@link Transaction#EXTRA_ACCOUNT_UID}
+ * create an Account for your transaction splits.
  * <p>Remember to declare the appropriate permissions in order to create transactions with Intents. 
  * The required permission is "org.gnucash.android.permission.RECORD_TRANSACTION"</p>
  * @author Ngewi Fet <ngewif@gmail.com>
  * @see AccountCreator
+ * @see org.gnucash.android.model.Transaction#createIntent(org.gnucash.android.model.Transaction)
  */
 public class TransactionRecorder extends BroadcastReceiver {
 
@@ -50,7 +50,7 @@ public class TransactionRecorder extends BroadcastReceiver {
 		Bundle args = intent.getExtras();
 		String name = args.getString(Intent.EXTRA_TITLE);
 		String note = args.getString(Intent.EXTRA_TEXT);
-		BigDecimal amountBigDecimal = (BigDecimal) args.getSerializable(Transaction.EXTRA_AMOUNT);
+
 		String currencyCode = args.getString(Account.EXTRA_CURRENCY_CODE);
 		if (currencyCode == null)
 			currencyCode = Money.DEFAULT_CURRENCY_CODE;
@@ -64,6 +64,7 @@ public class TransactionRecorder extends BroadcastReceiver {
 		String accountUID = args.getString(Transaction.EXTRA_ACCOUNT_UID);
         if (accountUID != null) {
             TransactionType type = TransactionType.valueOf(args.getString(Transaction.EXTRA_TRANSACTION_TYPE));
+            BigDecimal amountBigDecimal = (BigDecimal) args.getSerializable(Transaction.EXTRA_AMOUNT);
             Money amount = new Money(amountBigDecimal, Currency.getInstance(currencyCode));
             Split split = new Split(amount.absolute(), accountUID);
             split.setType(type);

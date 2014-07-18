@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2014 Ngewi Fet <ngewif@gmail.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.gnucash.android.db;
 
 import android.content.ContentValues;
@@ -36,11 +52,12 @@ public class SplitsDbAdapter extends DatabaseAdapter {
      */
     public long addSplit(Split split){
         ContentValues contentValues = new ContentValues();
-        contentValues.put(SplitEntry.COLUMN_UID, split.getUID());
-        contentValues.put(SplitEntry.COLUMN_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(SplitEntry.COLUMN_AMOUNT, split.getAmount().absolute().toPlainString());
-        contentValues.put(SplitEntry.COLUMN_TYPE, split.getType().name());
+        contentValues.put(SplitEntry.COLUMN_UID,        split.getUID());
+        contentValues.put(SplitEntry.COLUMN_AMOUNT,     split.getAmount().absolute().toPlainString());
+        contentValues.put(SplitEntry.COLUMN_TYPE,       split.getType().name());
+        contentValues.put(SplitEntry.COLUMN_MEMO,       split.getMemo());
         contentValues.put(SplitEntry.COLUMN_ACCOUNT_UID, split.getAccountUID());
+        contentValues.put(SplitEntry.COLUMN_TRANSACTION_UID, split.getTransactionUID());
 
         long rowId = -1;
         if ((rowId = getID(split.getUID())) > 0){
@@ -68,6 +85,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         String typeName     = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TYPE));
         String accountUID   = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_ACCOUNT_UID));
         String transxUID    = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TRANSACTION_UID));
+        String memo         = cursor.getString(cursor.getColumnIndexOrThrow(SplitEntry.COLUMN_MEMO));
 
         String currencyCode = getCurrencyCode(accountUID);
         Money amount = new Money(amountString, currencyCode);
@@ -76,6 +94,7 @@ public class SplitsDbAdapter extends DatabaseAdapter {
         split.setUID(uid);
         split.setTransactionUID(transxUID);
         split.setType(TransactionType.valueOf(typeName));
+        split.setMemo(memo);
 
         return split;
     }

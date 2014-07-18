@@ -15,11 +15,10 @@
  */
 package org.gnucash.android.export.qif;
 
-import android.content.Context;
-import org.gnucash.android.model.Account;
 import org.gnucash.android.db.AccountsDbAdapter;
-import org.gnucash.android.db.TransactionsDbAdapter;
-import org.gnucash.android.model.Transaction;
+import org.gnucash.android.export.ExportParams;
+import org.gnucash.android.export.Exporter;
+import org.gnucash.android.model.Account;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,23 +26,17 @@ import java.util.List;
 /**
  * @author Ngewi
  */
-public class QifExporter {
+public class QifExporter extends Exporter{
     boolean mExportAll;
-    Context mContext;
     private List<Account> mAccountsList;
 
-    public QifExporter(Context context, boolean exportAll){
-        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(context);
-        mAccountsList = exportAll ? accountsDbAdapter.getAllAccounts() : accountsDbAdapter.getExportableAccounts();
-        accountsDbAdapter.close();
-
-        this.mExportAll = exportAll;
-        this.mContext = context;
+    public QifExporter(ExportParams params){
+        super(params);
+        this.mExportAll = params.shouldExportAllTransactions();
     }
 
-    public String generateQIF(){
+    private String generateQIF(){
         StringBuffer qifBuffer = new StringBuffer();
-
 
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
         List<String> exportedTransactions = new ArrayList<String>();
@@ -61,4 +54,12 @@ public class QifExporter {
         return qifBuffer.toString();
     }
 
+    @Override
+    public String generateExport() throws ExporterException {
+        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
+        mAccountsList = mExportAll ? accountsDbAdapter.getAllAccounts() : accountsDbAdapter.getExportableAccounts();
+        accountsDbAdapter.close();
+
+        return generateQIF();
+    }
 }

@@ -20,6 +20,7 @@ import android.content.Context;
 import android.util.Log;
 import android.widget.Toast;
 import org.gnucash.android.R;
+import org.gnucash.android.export.xml.GncXmlHelper;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.model.AccountType;
@@ -42,19 +43,6 @@ import java.util.regex.Pattern;
  * @author Ngewi Fet <ngewif@gmail.com>
  */
 public class GnucashAccountXmlHandler extends DefaultHandler {
-
-    /*
-     * GnuCash account XML file qualified tag names. Used for matching tags
-     */
-    public static final String TAG_NAME             = "act:name";
-    public static final String TAG_UID              = "act:id";
-    public static final String TAG_TYPE             = "act:type";
-    public static final String TAG_CURRENCY         = "cmdty:id";
-    public static final String TAG_COMMODITY_SPACE  = "cmdty:space";
-    public static final String TAG_PARENT_UID       = "act:parent";
-    public static final String TAG_ACCOUNT          = "gnc:account";
-    public static final String TAG_SLOT_KEY         = "slot:key";
-    public static final String TAG_SLOT_VALUE       = "slot:value";
 
     /**
      * ISO 4217 currency code for "No Currency"
@@ -100,7 +88,7 @@ public class GnucashAccountXmlHandler extends DefaultHandler {
     @Override
     public void startElement(String uri, String localName,
                              String qualifiedName, Attributes attributes) throws SAXException {
-        if (qualifiedName.equalsIgnoreCase(TAG_ACCOUNT)) {
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_ACCOUNT)) {
             mAccount = new Account("new"); //dummy name, will be replaced when we find name tag
         }
     }
@@ -109,36 +97,36 @@ public class GnucashAccountXmlHandler extends DefaultHandler {
     public void endElement(String uri, String localName, String qualifiedName) throws SAXException {
         String characterString = mContent.toString().trim();
 
-        if (qualifiedName.equalsIgnoreCase(TAG_NAME)) {
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_NAME)) {
             mAccount.setName(characterString);
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_UID)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_ACCT_ID)){
             mAccount.setUID(characterString);
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_TYPE)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_TYPE)){
             mAccount.setAccountType(AccountType.valueOf(characterString));
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_COMMODITY_SPACE)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_COMMODITY_SPACE)){
             if (characterString.equalsIgnoreCase("ISO4217")){
                 mISO4217Currency = true;
             }
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_CURRENCY)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_COMMODITY_ID)){
             if (mAccount != null){
                 String currencyCode = mISO4217Currency ? characterString : NO_CURRENCY_CODE;
                 mAccount.setCurrency(Currency.getInstance(currencyCode));
             }
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_PARENT_UID)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_PARENT_UID)){
             mAccount.setParentUID(characterString);
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_ACCOUNT)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_ACCOUNT)){
             Log.d(LOG_TAG, "Saving account...");
             mDatabaseAdapter.addAccount(mAccount);
 
@@ -146,7 +134,7 @@ public class GnucashAccountXmlHandler extends DefaultHandler {
             mISO4217Currency = false;
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_SLOT_KEY)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_SLOT_KEY)){
             if (characterString.equals(PLACEHOLDER_KEY)){
                 mInPlaceHolderSlot = true;
             }
@@ -155,7 +143,7 @@ public class GnucashAccountXmlHandler extends DefaultHandler {
             }
         }
 
-        if (qualifiedName.equalsIgnoreCase(TAG_SLOT_VALUE)){
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_SLOT_VALUE)){
             if (mInPlaceHolderSlot){
                 if (characterString.equals("true")){
                     Log.d(LOG_TAG, "Setting account placeholder flag");

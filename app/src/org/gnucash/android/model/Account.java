@@ -18,10 +18,9 @@ package org.gnucash.android.model;
 
 import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.db.AccountsDbAdapter;
-import org.gnucash.android.db.SplitsDbAdapter;
-import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifHelper;
+import org.gnucash.android.export.xml.GncXmlHelper;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -118,7 +117,7 @@ public class Account {
      * Flag for placeholder accounts.
      * These accounts cannot have transactions
      */
-    private boolean mPlaceholderAccount;
+    private boolean mIsPlaceholderAccount;
 
     /**
      * Account color field in hex format #rrggbb
@@ -400,7 +399,7 @@ public class Account {
      * @return <code>true</code> if this account is a placeholder account, <code>false</code> otherwise
      */
     public boolean isPlaceholderAccount(){
-        return mPlaceholderAccount;
+        return mIsPlaceholderAccount;
     }
 
     /**
@@ -409,7 +408,7 @@ public class Account {
      * @param isPlaceholder Boolean flag indicating if the account is a placeholder account or not
      */
     public void setPlaceHolderFlag(boolean isPlaceholder){
-        mPlaceholderAccount = isPlaceholder;
+        mIsPlaceholderAccount = isPlaceholder;
     }
 
     /**
@@ -576,4 +575,82 @@ public class Account {
         }
         return accountQIFBuilder.toString();
     }
+
+    /**
+     * Helper method for creating slot key-value pairs in the account XML structure.
+     * <p>This method is for use with slots whose values are strings</p>
+     * @param doc {@link org.w3c.dom.Document} for creating nodes
+     * @param key Slot key as string
+     * @param value Slot value as String
+     * @return Element node containing the key-value pair
+     */
+    private Element createSlot(Document doc, String key, String value){
+        Element slotNode  = doc.createElement(GncXmlHelper.TAG_SLOT);
+        Element slotKeyNode = doc.createElement(GncXmlHelper.TAG_SLOT_KEY);
+        slotKeyNode.appendChild(doc.createTextNode(key));
+        Element slotValueNode = doc.createElement(GncXmlHelper.TAG_SLOT_VALUE);
+        slotValueNode.setAttribute("type", "string");
+        slotValueNode.appendChild(doc.createTextNode(value));
+        slotNode.appendChild(slotKeyNode);
+        slotNode.appendChild(slotValueNode);
+
+        return slotNode;
+    }
+
+    /**
+     * Method which generates the GnuCash XML DOM for this account
+     * @param doc {@link org.w3c.dom.Document} for creating nodes
+     * @param rootNode {@link org.w3c.dom.Element} node to which to attach the XML
+     */
+    public void toGncXml(Document doc, Element rootNode) {
+        Element nameNode = doc.createElement(GncXmlHelper.TAG_NAME);
+        nameNode.appendChild(doc.createTextNode(mName));
+
+        Element idNode = doc.createElement(GncXmlHelper.TAG_ACCT_ID);
+        idNode.setAttribute("type", "guid");
+        idNode.appendChild(doc.createTextNode(mUID));
+
+        Element typeNode = doc.createElement(GncXmlHelper.TAG_TYPE);
+        typeNode.appendChild(doc.createTextNode(mAccountType.name()));
+
+        Element commodityNode = doc.createElement(GncXmlHelper.TAG_COMMODITY);
+        Element cmdtySpacenode = doc.createElement(GncXmlHelper.TAG_COMMODITY_SPACE);
+        cmdtySpacenode.appendChild(doc.createTextNode("ISO4217"));
+        commodityNode.appendChild(cmdtySpacenode);
+        Element cmdtyIdNode = doc.createElement(GncXmlHelper.TAG_COMMODITY_ID);
+        cmdtyIdNode.appendChild(doc.createTextNode(mCurrency.getCurrencyCode()));
+        commodityNode.appendChild(cmdtyIdNode);
+
+        Element commodityScuNode = doc.createElement(GncXmlHelper.TAG_COMMODITY_SCU);
+        commodityScuNode.appendChild(doc.createTextNode(Integer.toString(mCurrency.getDefaultFractionDigits()*10)));
+
+        Element descriptionNode = doc.createElement(GncXmlHelper.TAG_ACCT_DESCRIPTION);
+        descriptionNode.appendChild(doc.createTextNode(mName));
+
+        Element acctSlotsNode = doc.createElement(GncXmlHelper.TAG_ACT_SLOTS);
+        acctSlotsNode.appendChild(createSlot(doc, "placeholder", Boolean.toString(mIsPlaceholderAccount)));
+
+        if (mColorCode != null && mColorCode.trim().length() > 0){
+            acctSlotsNode.appendChild(createSlot(doc, "color", mColorCode));
+        }
+
+        acctSlotsNode.appendChild(createSlot(doc, "favorite", Boolean.toString(mIsFavorite)));
+
+        Element accountNode = doc.createElement(GncXmlHelper.TAG_ACCOUNT);
+        accountNode.setAttribute("version", GncXmlHelper.BOOK_VERSION);
+        accountNode.appendChild(nameNode).appendChild(idNode).appendChild(typeNode)
+                .appendChild(commodityNode).appendChild(commodityScuNode)
+                .appendChild(descriptionNode).appendChild(acctSlotsNode);
+
+
+        if (mParentAccountUID != null && mParentAccountUID.trim().length() > 0){
+            Element parentAccountNode = doc.createElement(GncXmlHelper.TAG_PARENT_UID);
+            parentAccountNode.setAttribute("type", "guid");
+            parentAccountNode.appendChild(doc.createTextNode(mParentAccountUID));
+            accountNode.appendChild(parentAccountNode);
+        }
+
+        rootNode.appendChild(accountNode);
+    }
+
 }

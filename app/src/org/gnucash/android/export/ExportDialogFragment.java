@@ -213,6 +213,9 @@ public class ExportDialogFragment extends DialogFragment {
             case OFX:
                 filename += ".ofx";
                 break;
+            case GNC_XML:
+                filename += ".gnucash";
+                break;
         }
 		return filename;
 	}

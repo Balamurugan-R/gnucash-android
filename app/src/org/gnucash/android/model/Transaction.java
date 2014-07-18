@@ -21,6 +21,7 @@ import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifHelper;
+import org.gnucash.android.export.xml.GncXmlHelper;
 import org.gnucash.android.model.Account.OfxAccountType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -45,22 +46,26 @@ public class Transaction {
 	/**
 	 * Key for passing the account unique Identifier as an argument through an {@link Intent}
 	 */
+    @Deprecated
 	public static final String EXTRA_ACCOUNT_UID 	= "org.gnucash.android.extra.account_uid";
 
 	/**
 	 * Key for specifying the double entry account
 	 */
+    @Deprecated
 	public static final String EXTRA_DOUBLE_ACCOUNT_UID = "org.gnucash.android.extra.double_account_uid";
 
 	/**
 	 * Key for identifying the amount of the transaction through an Intent
 	 */
+    @Deprecated
 	public static final String EXTRA_AMOUNT 		= "org.gnucash.android.extra.amount";
 
     /**
      * Extra key for the transaction type.
      * This value should typically be set by calling {@link TransactionType#name()}
      */
+    @Deprecated
     public static final String EXTRA_TRANSACTION_TYPE = "org.gnucash.android.extra.transaction_type";
 
     /**
@@ -68,7 +73,7 @@ public class Transaction {
      * The line format is: <type>;<amount>;<account_uid>
      * The amount should be formatted in the US Locale
      */
-    public static final String EXTRA_SPLITS = "org.gnucash.android.extra.splits";
+    public static final String EXTRA_SPLITS = "org.gnucash.android.extra.transaction.splits";
 
     /**
      * Currency used by splits in this transaction
@@ -149,7 +154,7 @@ public class Transaction {
 	 */
 	private void initDefaults(){
 		this.mTimestamp = System.currentTimeMillis();
-		mUID = UUID.randomUUID().toString();
+		mUID = UUID.randomUUID().toString().replaceAll("-", "");
 	}
 
     /**
@@ -233,6 +238,7 @@ public class Transaction {
      * @return Money imbalance of the transaction
      */
     public Money getImbalance(){
+        //TODO: Simplify this computation to use simple addtion/subtraction of CREDIT/DEBIT
         Money imbalance = Money.createZeroInstance(mCurrencyCode);
         Money biggestSplit = imbalance;
 
@@ -593,7 +599,7 @@ public class Transaction {
      * This <code>splitList</code> typically contains splits from the same transaction.
      * @param split {@link Split} for which to find pair
      * @param splitList List of splits
-     * @return
+     * @return Split which is a pair to the passed in split
      * */
     public static Split findPair(Split split, final List<Split> splitList){
         for (Split splitEntry : splitList) {
@@ -611,18 +617,56 @@ public class Transaction {
      * @return Intent with transaction details as extras
      */
     public static Intent createIntent(Transaction transaction){
-        //TODO: Redesign intents for working with GnuCash. Maybe maintain backwards compat?? Yes, recurring transaction!
-
         Intent intent = new Intent(Intent.ACTION_INSERT);
         intent.setType(Transaction.MIME_TYPE);
         intent.putExtra(Intent.EXTRA_TITLE, transaction.getName());
         intent.putExtra(Intent.EXTRA_TEXT, transaction.getDescription());
-//        intent.putExtra(EXTRA_AMOUNT, transaction.getAmount().asBigDecimal());
-//        intent.putExtra(EXTRA_ACCOUNT_UID, transaction.getAccountUID());
-//        intent.putExtra(EXTRA_DOUBLE_ACCOUNT_UID, transaction.getDoubleEntryAccountUID());
-//        intent.putExtra(Account.EXTRA_CURRENCY_CODE, transaction.getAmount().getCurrency().getCurrencyCode());
-//        intent.putExtra(EXTRA_TRANSACTION_TYPE, transaction.getTransactionType().name());
+        intent.putExtra(Account.EXTRA_CURRENCY_CODE, transaction.getCurrencyCode());
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Split split : transaction.getSplits()) {
+            stringBuilder.append(split.toCsv()).append("\n");
+        }
+        intent.putExtra(Transaction.EXTRA_SPLITS, stringBuilder.toString());
         return intent;
     }
 
+    public void toGncXml(Document doc, Element rootElement) {
+        Element idNode = doc.createElement(GncXmlHelper.TAG_TRX_ID);
+        idNode.setAttribute("type", "guid");
+        idNode.appendChild(doc.createTextNode(mUID));
+
+        Element currencyNode = doc.createElement(GncXmlHelper.TAG_TRX_CURRENCY);
+        Element cmdtySpacenode = doc.createElement(GncXmlHelper.TAG_COMMODITY_SPACE);
+        cmdtySpacenode.appendChild(doc.createTextNode("ISO4217"));
+        currencyNode.appendChild(cmdtySpacenode);
+        Element cmdtyIdNode = doc.createElement(GncXmlHelper.TAG_COMMODITY_ID);
+        cmdtyIdNode.appendChild(doc.createTextNode(mCurrencyCode));
+        currencyNode.appendChild(cmdtyIdNode);
+
+        Element datePostedNode = doc.createElement(GncXmlHelper.TAG_DATE_POSTED);
+        Element datePNode = doc.createElement(GncXmlHelper.TAG_DATE);
+        datePNode.appendChild(doc.createTextNode(GncXmlHelper.formatDate(mTimestamp)));
+        datePostedNode.appendChild(datePNode);
+
+        Element dateEneteredNode = doc.createElement(GncXmlHelper.TAG_DATE_ENTERED);
+        Element dateENode = doc.createElement(GncXmlHelper.TAG_DATE_ENTERED);
+        dateENode.appendChild(doc.createTextNode(GncXmlHelper.formatDate(mTimestamp)));
+        dateEneteredNode.appendChild(dateEneteredNode);
+
+        Element descriptionNode = doc.createElement(GncXmlHelper.TAG_TRX_DESCRIPTION);
+        if (mDescription != null) {
+            descriptionNode.appendChild(doc.createTextNode(mDescription));
+        }
+
+        Element trnSplits = doc.createElement(GncXmlHelper.TAG_TRX_SPLITS);
+        for (Split split : mSplitList) {
+            split.toGncXml(doc, trnSplits);
+        }
+
+        Element transactionNode = doc.createElement(GncXmlHelper.TAG_TRANSACTION);
+        transactionNode.appendChild(idNode).appendChild(currencyNode).appendChild(datePostedNode)
+                .appendChild(dateEneteredNode).appendChild(descriptionNode).appendChild(trnSplits);
+
+        rootElement.appendChild(transactionNode);
+    }
 }
