@@ -19,6 +19,7 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 import org.gnucash.android.model.AccountType;
@@ -42,6 +43,10 @@ public class SplitsDbAdapter extends DatabaseAdapter {
 
     public SplitsDbAdapter(Context context){
         super(context);
+    }
+
+    public SplitsDbAdapter(SQLiteDatabase db) {
+        super(db);
     }
 
     /**

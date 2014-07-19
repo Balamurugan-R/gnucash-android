@@ -21,6 +21,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.model.AccountType;
 
 /**
@@ -61,6 +62,17 @@ public abstract class DatabaseAdapter {
 		open();
 	}
 
+    /**
+     * Opens the database adapter with an existing database
+     * @param db SQLiteDatabase object
+     */
+    public DatabaseAdapter(SQLiteDatabase db){
+        this.mDb = db;
+        this.mContext = GnuCashApplication.getAppContext();
+        if (!db.isOpen() || db.isReadOnly())
+            throw new IllegalArgumentException("Database not open or is read-only. Require writeable database");
+    }
+
 	/**
 	 * Opens/creates database to be used for reading or writing. 
 	 * @return Reference to self for database manipulation
@@ -80,7 +92,8 @@ public abstract class DatabaseAdapter {
 	 * Close the database
 	 */
 	public void close(){
-		mDbHelper.close();
+		if (mDbHelper != null)
+            mDbHelper.close();
 		mDb.close();
 	}
 
@@ -238,6 +251,8 @@ public abstract class DatabaseAdapter {
      */
     public long getAccountID(String accountUID){
         long id = -1;
+        if (accountUID == null)
+            return id;
         Cursor c = mDb.query(DatabaseSchema.AccountEntry.TABLE_NAME,
                 new String[]{DatabaseSchema.AccountEntry._ID},
                 DatabaseSchema.AccountEntry.COLUMN_UID + "= ?",

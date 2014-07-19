@@ -16,15 +16,22 @@
 
 package org.gnucash.android.db;
 
-import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Environment;
 import android.util.Log;
+import org.gnucash.android.app.GnuCashApplication;
+import org.gnucash.android.export.ExportFormat;
+import org.gnucash.android.export.ExportParams;
+import org.gnucash.android.export.Exporter;
+import org.gnucash.android.export.xml.GncXmlExporter;
+import org.gnucash.android.importer.GncXmlHandler;
+import org.gnucash.android.importer.GncXmlImportTask;
 import org.gnucash.android.model.AccountType;
-import org.gnucash.android.model.Split;
+
+import java.io.*;
+
 import static org.gnucash.android.db.DatabaseSchema.AccountEntry;
-import static org.gnucash.android.db.DatabaseSchema.TransactionEntry;
-import static org.gnucash.android.db.DatabaseSchema.SplitEntry;
 
 /**
  * Date: 23.03.2014
@@ -33,55 +40,6 @@ import static org.gnucash.android.db.DatabaseSchema.SplitEntry;
  */
 public class MigrationHelper {
     public static final String LOG_TAG = "MigrationHelper";
-
-    public static boolean addSplit(SQLiteDatabase db, Split split){
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(SplitEntry.COLUMN_UID, split.getUID());
-        contentValues.put(SplitEntry.COLUMN_TRANSACTION_UID, split.getTransactionUID());
-        contentValues.put(SplitEntry.COLUMN_AMOUNT, split.getAmount().absolute().toPlainString());
-        contentValues.put(SplitEntry.COLUMN_TYPE, split.getType().name());
-
-        Log.d(LOG_TAG, "Adding new transaction split to db");
-        long rowId = db.insert(DatabaseSchema.SplitEntry.TABLE_NAME, null, contentValues);
-        return rowId > 0;
-    }
-
-    /**
-     * Returns the currency code (according to the ISO 4217 standard) of the account
-     * with unique Identifier <code>accountUID</code>
-     * @param accountUID Unique Identifier of the account
-     * @return Currency code of the account
-     */
-    public static String getCurrencyCode(SQLiteDatabase db, String accountUID) {
-        Cursor cursor = db.query(AccountEntry.TABLE_NAME,
-                new String[] {AccountEntry.COLUMN_CURRENCY},
-                AccountEntry.COLUMN_UID + "= ?",
-                new String[]{accountUID}, null, null, null);
-
-        if (cursor == null || cursor.getCount() <= 0)
-            return null;
-
-        cursor.moveToFirst();
-        String currencyCode = cursor.getString(0);
-        cursor.close();
-        return currencyCode;
-    }
-
-    /**
-     * Updates a specific entry of an transaction
-     * @param db SQLite database
-     * @param transactionUID Unique ID of the transaction
-     * @param columnKey Name of column to be updated
-     * @param newValue  New value to be assigned to the columnKey
-     * @return Number of records affected
-     */
-    public static int updateTransaction(SQLiteDatabase db, String transactionUID, String columnKey, String newValue){
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(columnKey, newValue);
-
-        return db.update(TransactionEntry.TABLE_NAME, contentValues,
-                TransactionEntry.COLUMN_UID + "= ?", new String[]{transactionUID});
-    }
 
     /**
      * Performs same functtion as {@link AccountsDbAdapter#getFullyQualifiedAccountName(String)}
@@ -149,5 +107,62 @@ public class MigrationHelper {
             cursor.close();
         }
         return rootUID;
+    }
+
+    /**
+     * Exports the database to a GnuCash XML file and returns the path to the file
+     * @return String with exported GnuCash XML
+     */
+    static String exportGnucashXML(SQLiteDatabase db) {
+        Log.i(LOG_TAG, "Exporting database to GnuCash XML");
+        ExportParams exportParams = new ExportParams(ExportFormat.GNC_XML);
+        exportParams.setExportAllTransactions(true);
+        exportParams.setExportTarget(ExportParams.ExportTarget.SD_CARD);
+        exportParams.setDeleteTransactionsAfterExport(false);
+
+        new File(Environment.getExternalStorageDirectory() + "/gnucash/").mkdirs();
+        exportParams.setTargetFilepath(Environment.getExternalStorageDirectory()
+                + "/gnucash/" + Exporter.buildExportFilename(ExportFormat.GNC_XML));
+
+        try {
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(exportParams.getTargetFilepath()), "UTF-8"));
+            writer.write(new GncXmlExporter(exportParams, db).generateExport());
+
+            writer.flush();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error backing up database for upgrade", e);
+        }
+
+        return exportParams.getTargetFilepath();
+    }
+
+    /**
+     * Imports GnuCash XML into the database from file
+     * @param filepath Path to GnuCash XML file
+     */
+    static void importGnucashXML(SQLiteDatabase db, String filepath) {
+        Log.i(LOG_TAG, "Importing GnuCash XML");
+        try {
+            FileInputStream inputStream = new FileInputStream(filepath);
+            GncXmlHandler.parse(db, inputStream);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+
+        //update the fully qualified names because
+        //during import, an account may be imported before its parent which will make the full name null:<name>
+        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(db);
+        Cursor cursor = accountsDbAdapter.fetchAllRecords();
+        if (cursor != null){
+            while (cursor.moveToNext()){
+                long id = cursor.getLong(cursor.getColumnIndexOrThrow(AccountEntry._ID));
+                accountsDbAdapter.updateAccount(id, AccountEntry.COLUMN_FULL_NAME,
+                        accountsDbAdapter.getFullyQualifiedAccountName(id));
+            }
+        }
     }
 }

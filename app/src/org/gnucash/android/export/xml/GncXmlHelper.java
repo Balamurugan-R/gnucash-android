@@ -1,6 +1,8 @@
 package org.gnucash.android.export.xml;
 
 import org.gnucash.android.model.Money;
+import org.gnucash.android.model.Split;
+import org.gnucash.android.model.TransactionType;
 
 import java.math.BigDecimal;
 import java.text.ParseException;
@@ -38,7 +40,7 @@ public abstract class GncXmlHelper {
     public static final String TAG_SLOT             = "slot";
     public static final String TAG_ACCT_DESCRIPTION = "act:description";
 
-    public static final String TAG_TRANSACTION      = "transcation";
+    public static final String TAG_TRANSACTION      = "gnc:transcation";
     public static final String TAG_TRX_ID           = "trn:id";
     public static final String TAG_TRX_CURRENCY     = "trn:currency";
     public static final String TAG_DATE_POSTED      = "trn:date-posted";
@@ -79,12 +81,26 @@ public abstract class GncXmlHelper {
     }
 
     /**
-     * Formats the money amounts into the GnuCash XML format
-     * @param amount {@link org.gnucash.android.model.Money} amount
+     * Formats the money amounts into the GnuCash XML format. GnuCash stores debits as positive and credits as negative
+     * @param split Split for which the amount is to be formatted
      * @return GnuCash XML representation of amount
      */
-    public static String formatMoney(Money amount){
+    public static String formatMoney(Split split){
+        Money amount = split.getType() == TransactionType.DEBIT ? split.getAmount() : split.getAmount().negate();
         BigDecimal decimal = amount.asBigDecimal().multiply(new BigDecimal(100));
-        return decimal.toPlainString() + "/100";
+        return decimal.stripTrailingZeros().toPlainString() + "/100";
+    }
+
+    /**
+     * Parses amount strings from GnuCash XML into {@link java.math.BigDecimal}s
+     * @param amountString String containing the amount
+     * @return BigDecimal with numerical value
+     */
+    public static BigDecimal parseMoney(String amountString){
+        String[] tokens = amountString.split("/");
+        BigDecimal numerator = new BigDecimal(tokens[0]);
+        BigDecimal denominator = new BigDecimal(tokens[1]);
+
+        return numerator.divide(denominator);
     }
 }

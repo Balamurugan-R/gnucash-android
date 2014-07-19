@@ -16,6 +16,7 @@
 
 package org.gnucash.android.export.xml;
 
+import android.database.sqlite.SQLiteDatabase;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.TransactionsDbAdapter;
 import org.gnucash.android.export.ExportParams;
@@ -43,14 +44,30 @@ import java.util.UUID;
 public class GncXmlExporter extends Exporter{
 
     private Document mDocument;
+    private TransactionsDbAdapter mTransactionsDbAdapter;
+    private AccountsDbAdapter mAccountsDbAdapter;
 
     public GncXmlExporter(ExportParams params){
         super(params);
+        mAccountsDbAdapter = new AccountsDbAdapter(mContext);
+        mTransactionsDbAdapter = new TransactionsDbAdapter(mContext);
+    }
+
+    /**
+     * Overloaded constructor.
+     * <p>This method is used mainly by the {@link org.gnucash.android.db.DatabaseHelper} for database migrations</p>
+     * @param params Export parameters
+     * @param db SQLite database from which to export
+     */
+    public GncXmlExporter(ExportParams params, SQLiteDatabase db){
+        super(params);
+        mAccountsDbAdapter = new AccountsDbAdapter(db);
+        mTransactionsDbAdapter = new TransactionsDbAdapter(db);
     }
 
     private void generateGncXml() throws ParserConfigurationException {
         DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-        docFactory.setNamespaceAware(true);
+//        docFactory.setNamespaceAware(true);
         DocumentBuilder documentBuilder = docFactory.newDocumentBuilder();
 
         mDocument = documentBuilder.newDocument();
@@ -58,16 +75,16 @@ public class GncXmlExporter extends Exporter{
         mDocument.setXmlStandalone(true);
 
         Element rootElement = mDocument.createElement(GncXmlHelper.TAG_ROOT);
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:gnc",    "http://www.gnucash.org/XML/gnc");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:act",    "http://www.gnucash.org/XML/act");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:book",   "http://www.gnucash.org/XML/book");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:cd",     "http://www.gnucash.org/XML/cd");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:cmdty",  "http://www.gnucash.org/XML/cmdty");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:price",  "http://www.gnucash.org/XML/price");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:slot",   "http://www.gnucash.org/XML/slot");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:split",  "http://www.gnucash.org/XML/split");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:trn",    "http://www.gnucash.org/XML/trn");
-        rootElement.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:ts",     "http://www.gnucash.org/XML/ts");
+        rootElement.setAttribute("xmlns:gnc",    "http://www.gnucash.org/XML/gnc");
+        rootElement.setAttribute("xmlns:act",    "http://www.gnucash.org/XML/act");
+        rootElement.setAttribute("xmlns:book",   "http://www.gnucash.org/XML/book");
+        rootElement.setAttribute("xmlns:cd",     "http://www.gnucash.org/XML/cd");
+        rootElement.setAttribute("xmlns:cmdty",  "http://www.gnucash.org/XML/cmdty");
+        rootElement.setAttribute("xmlns:price",  "http://www.gnucash.org/XML/price");
+        rootElement.setAttribute("xmlns:slot",   "http://www.gnucash.org/XML/slot");
+        rootElement.setAttribute("xmlns:split",  "http://www.gnucash.org/XML/split");
+        rootElement.setAttribute("xmlns:trn",    "http://www.gnucash.org/XML/trn");
+        rootElement.setAttribute("xmlns:ts",     "http://www.gnucash.org/XML/ts");
 
         Element bookCountNode = mDocument.createElement(GncXmlHelper.TAG_COUNT_DATA);
         bookCountNode.setAttribute("cd:type", "book");
@@ -88,18 +105,15 @@ public class GncXmlExporter extends Exporter{
         cmdtyCountData.appendChild(mDocument.createTextNode("1")); //TODO: put actual number of currencies
         bookNode.appendChild(cmdtyCountData);
 
-        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
-        List<Account> accountList = accountsDbAdapter.getAllAccounts();
-        accountsDbAdapter.close();
+        List<Account> accountList = mAccountsDbAdapter.getSimpleAccountList();
 
         Element accountCountNode = mDocument.createElement(GncXmlHelper.TAG_COUNT_DATA);
         accountCountNode.setAttribute("cd:type", "account");
         accountCountNode.appendChild(mDocument.createTextNode(String.valueOf(accountList.size())));
         bookNode.appendChild(accountCountNode);
 
-        TransactionsDbAdapter transactionsDbAdapter = new TransactionsDbAdapter(mContext);
-        List<Transaction> transactionsList = transactionsDbAdapter.getAllTransactions();
-        transactionsDbAdapter.close();
+        List<Transaction> transactionsList = mTransactionsDbAdapter.getAllTransactions();
+
         Element transactionCountNode = mDocument.createElement(GncXmlHelper.TAG_COUNT_DATA);
         transactionCountNode.setAttribute("cd:type", "transaction");
         transactionCountNode.appendChild(mDocument.createTextNode(String.valueOf(transactionsList.size())));
@@ -112,14 +126,12 @@ public class GncXmlExporter extends Exporter{
         for (Transaction transaction : transactionsList) {
             transaction.toGncXml(mDocument, bookNode);
         }
-
-
+        mDocument.appendChild(rootElement);
     }
 
     @Override
     public String generateExport() throws ExporterException{
         StringWriter stringWriter = new StringWriter();
-
         try {
             generateGncXml();
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
@@ -132,6 +144,7 @@ public class GncXmlExporter extends Exporter{
             StreamResult result = new StreamResult(stringWriter);
 
             transformer.transform(source, result);
+            stringWriter.flush();
         } catch (Exception e) {
             e.printStackTrace();
             throw new ExporterException(mParameters, e);

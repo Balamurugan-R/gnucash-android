@@ -180,18 +180,22 @@ public class Split {
         stateNode.appendChild(doc.createTextNode("n"));
 
         Element valueNode = doc.createElement(GncXmlHelper.TAG_SPLIT_VALUE);
-        valueNode.appendChild(doc.createTextNode(GncXmlHelper.formatMoney(mAmount)));
+        valueNode.appendChild(doc.createTextNode(GncXmlHelper.formatMoney(this)));
 
         Element quantityNode = doc.createElement(GncXmlHelper.TAG_SPLIT_QUANTITY);
-        quantityNode.appendChild(doc.createTextNode(GncXmlHelper.formatMoney(mAmount)));
+        quantityNode.appendChild(doc.createTextNode(GncXmlHelper.formatMoney(this)));
 
         Element accountNode = doc.createElement(GncXmlHelper.TAG_SPLIT_ACCOUNT);
         accountNode.setAttribute("type", "guid");
         accountNode.appendChild(doc.createTextNode(mAccountUID));
 
         Element splitNode = doc.createElement(GncXmlHelper.TAG_TRX_SPLIT);
-        splitNode.appendChild(idNode).appendChild(memoNode).appendChild(stateNode)
-                .appendChild(valueNode).appendChild(quantityNode).appendChild(accountNode);
+        splitNode.appendChild(idNode);
+        splitNode.appendChild(memoNode);
+        splitNode.appendChild(stateNode);
+        splitNode.appendChild(valueNode);
+        splitNode.appendChild(quantityNode);
+        splitNode.appendChild(accountNode);
 
         rootNode.appendChild(splitNode);
     }

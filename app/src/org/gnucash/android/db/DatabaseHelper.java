@@ -22,14 +22,9 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
-import org.gnucash.android.model.*;
+import org.gnucash.android.model.AccountType;
 
-import static org.gnucash.android.db.DatabaseSchema.AccountEntry;
-import static org.gnucash.android.db.DatabaseSchema.TransactionEntry;
-import static org.gnucash.android.db.DatabaseSchema.SplitEntry;
-
-import java.math.BigDecimal;
-import java.util.Currency;
+import static org.gnucash.android.db.DatabaseSchema.*;
 
 /**
  * Helper class for managing the SQLite database.
@@ -38,8 +33,8 @@ import java.util.Currency;
  *
  */
 public class DatabaseHelper extends SQLiteOpenHelper {
-	
-	/**
+
+    /**
 	 * Tag for logging
 	 */
 	private static final String LOG_TAG = DatabaseHelper.class.getName();
@@ -115,10 +110,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 	
 	@Override
 	public void onCreate(SQLiteDatabase db) {
-		Log.i(LOG_TAG, "Creating gnucash database tables");
-		db.execSQL(ACCOUNTS_TABLE_CREATE);
-		db.execSQL(TRANSACTIONS_TABLE_CREATE);
-        db.execSQL(SPLITS_TABLE_CREATE);
+		createDatabaseTables(db);
 	}
 
 	@Override
@@ -220,52 +212,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 oldVersion = 6;
             }
 
-            if (oldVersion == 6 && newVersion == 7){
-                Log.i(LOG_TAG, "Upgrading database to version 6");
+            if (oldVersion == 6 && newVersion >= DatabaseSchema.SPLITS_DB_VERSION){
+                Log.i(LOG_TAG, "Upgrading database to version 7");
+                String filepath = MigrationHelper.exportGnucashXML(db);
 
-                //TODO: Backup database first!!
-                /* - Backup in GnuCash XML format
-                 * - Read in file from GnuCash XML format
-                 */
-                db.execSQL(SPLITS_TABLE_CREATE);
-                String addCurrencyToTransactions = " ALTER TABLE " + TransactionEntry.TABLE_NAME
-                        + " ADD COLUMN " + AccountEntry.COLUMN_CURRENCY + " varchar(255) ";
-                db.execSQL(addCurrencyToTransactions);
+                dropAllDatabaseTables(db);
+                createDatabaseTables(db);
 
-                Cursor trxCursor = db.query(TransactionEntry.TABLE_NAME,
-                        null, null, null, null, null, null);
-                while(trxCursor != null && trxCursor.moveToNext()){
-                    String accountUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(SplitEntry.COLUMN_ACCOUNT_UID));
-                    String doubleAccountUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(KEY_DOUBLE_ENTRY_ACCOUNT_UID));
-                    Currency currency = Currency.getInstance(MigrationHelper.getCurrencyCode(db, accountUID));
-                    String amountString = trxCursor.getString(trxCursor.getColumnIndexOrThrow(SplitEntry.COLUMN_AMOUNT));
-                    Money amount = new Money(new BigDecimal(amountString), currency);
+                MigrationHelper.importGnucashXML(db, filepath);
 
-                    String transactionUID = trxCursor.getString(trxCursor.getColumnIndexOrThrow(TransactionEntry.COLUMN_UID));
-                    MigrationHelper.updateTransaction(db, transactionUID, AccountEntry.COLUMN_CURRENCY, currency.getCurrencyCode());
-                    //TODO: Migrate recurring transactions. (special flag for their splits?)
-                    TransactionType transactionType = TransactionType.valueOf(trxCursor.getString(trxCursor.getColumnIndexOrThrow(SplitEntry.COLUMN_TYPE)));
-                    String transactionMemo = trxCursor.getString(trxCursor.getColumnIndexOrThrow(TransactionEntry.COLUMN_DESCRIPTION));
-
-                    Split split = new Split(amount, accountUID);
-                    split.setTransactionUID(transactionUID);
-                    split.setType(transactionType);
-                    split.setMemo(transactionMemo);
-
-                    if (doubleAccountUID != null && doubleAccountUID.length() > 0) {
-                        MigrationHelper.addSplit(db, split.createPair(doubleAccountUID));
-                    }
-
-                    MigrationHelper.addSplit(db, split);
-                }
-
-                //unused rows cannot be dropped easily in sqlite, so we leave them there and just ignore them
-                //String[] transxColumnsToDrop = new String[]{COLUMN_AMOUNT, COLUMN_TYPE, KEY_ACCOUNT_UID, KEY_DOUBLE_ENTRY_ACCOUNT_UID};
-
-//                String addCurrencyToTransactions = "ALTER TABLE " + TABLE_NAME
-//                        + " ADD COLUMN " + KEY_CURRENCY_CODE + " varchar(255) not null";
-//                db.execSQL(addCurrencyToTransactions);
-
+                oldVersion = DatabaseSchema.SPLITS_DB_VERSION;
             }
 		}
 
@@ -273,6 +229,28 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             Log.w(LOG_TAG, "Upgrade for the database failed. The Database is currently at version " + oldVersion);
         }
 	}
+
+    /**
+     * Creates the tables in the database
+     * @param db Database instance
+     */
+    private void createDatabaseTables(SQLiteDatabase db) {
+        Log.i(LOG_TAG, "Creating database tables");
+        db.execSQL(ACCOUNTS_TABLE_CREATE);
+        db.execSQL(TRANSACTIONS_TABLE_CREATE);
+        db.execSQL(SPLITS_TABLE_CREATE);
+    }
+
+    /**
+     * Drops all tables in the database
+     * @param db Database instance
+     */
+    private void dropAllDatabaseTables(SQLiteDatabase db) {
+        Log.i(LOG_TAG, "Dropping all database tables");
+        db.execSQL("DROP TABLE IF EXISTS " + AccountEntry.TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + TransactionEntry.TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + SplitEntry.TABLE_NAME);
+    }
 
 
 }

@@ -19,6 +19,7 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 import org.gnucash.android.model.Account;
@@ -56,7 +57,16 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 		mTransactionsAdapter = new TransactionsDbAdapter(context);
 	}
 
-	@Override
+    /**
+     * Overloaded constructor. Creates an adapter for an already open database
+     * @param db SQliteDatabase instance
+     */
+    public AccountsDbAdapter(SQLiteDatabase db) {
+        super(db);
+        mTransactionsAdapter = new TransactionsDbAdapter(db);
+    }
+
+    @Override
 	public void close() {
 		super.close();
 		mTransactionsAdapter.close();
@@ -235,33 +245,43 @@ public class AccountsDbAdapter extends DatabaseAdapter {
     }
 
 	/**
-	 * Builds an account instance with the provided cursor.
-	 * <p>The method will not move the cursor position, so the cursor should already be pointing
-     * to the account record in the database<br/>
-     * <b>Note</b> that this method expects the cursor to contain all columns from the database table</p>
-     *
+	 * Builds an account instance with the provided cursor and loads its corresponding transactions.
+	 *
 	 * @param c Cursor pointing to account record in database
 	 * @return {@link Account} object constructed from database record
 	 */
 	public Account buildAccountInstance(Cursor c){
-		Account account = new Account(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_NAME)));
-		String uid = c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_UID));
-		account.setUID(uid);
-		account.setParentUID(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_PARENT_ACCOUNT_UID)));
-		account.setAccountType(AccountType.valueOf(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_TYPE))));
-		//make sure the account currency is set before setting the transactions
-		//else the transactions end up with a different currency from the account
-		account.setCurrency(Currency.getInstance(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_CURRENCY))));
-		account.setTransactions(mTransactionsAdapter.getAllTransactionsForAccount(uid));
+        Account account = buildSimpleAccountInstance(c);
+        account.setTransactions(mTransactionsAdapter.getAllTransactionsForAccount(account.getUID()));
+
+        return account;
+	}
+
+    /**
+     * Builds an account instance with the provided cursor and loads its corresponding transactions.
+     * <p>The method will not move the cursor position, so the cursor should already be pointing
+     * to the account record in the database<br/>
+     * <b>Note</b> Unlike {@link  #buildAccountInstance(android.database.Cursor)} this method will not load transactions</p>
+     *
+     * @param c Cursor pointing to account record in database
+     * @return {@link Account} object constructed from database record
+     */
+    private Account buildSimpleAccountInstance(Cursor c) {
+        Account account = new Account(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_NAME)));
+        String uid = c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_UID));
+        account.setUID(uid);
+        account.setParentUID(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_PARENT_ACCOUNT_UID)));
+        account.setAccountType(AccountType.valueOf(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_TYPE))));
+        account.setCurrency(Currency.getInstance(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_CURRENCY))));
         account.setPlaceHolderFlag(c.getInt(c.getColumnIndexOrThrow(AccountEntry.COLUMN_PLACEHOLDER)) == 1);
         account.setDefaultTransferAccountUID(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_DEFAULT_TRANSFER_ACCOUNT_UID)));
         account.setColorCode(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_COLOR_CODE)));
         account.setFavorite(c.getInt(c.getColumnIndexOrThrow(AccountEntry.COLUMN_FAVORITE)) == 1);
         account.setFullName(c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_FULL_NAME)));
-		return account;
-	}
+        return account;
+    }
 
-	/**
+    /**
 	 * Returns the  unique ID of the parent account of the account with unique ID <code>uid</code>
 	 * If the account has no parent, null is returned
 	 * @param uid Unique Identifier of account whose parent is to be returned. Should not be null
@@ -386,7 +406,26 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 		c.close();
 		return accounts;
 	}
-	
+
+    /**
+     * Returns a list of all account entries in the system (includes root account)
+     * No transactions are loaded, just the accounts
+     * @return List of {@link Account}s in the database
+     */
+    public List<Account> getSimpleAccountList(){
+        LinkedList<Account> accounts = new LinkedList<Account>();
+        Cursor c = fetchAccounts(null);
+
+        if (c == null)
+            return accounts;
+
+        while(c.moveToNext()){
+            accounts.add(buildSimpleAccountInstance(c));
+        }
+        c.close();
+        return accounts;
+    }
+
 	/**
 	 * Returns a list of accounts which have transactions that have not been exported yet
 	 * @return List of {@link Account}s with unexported transactions
@@ -568,7 +607,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
         //TODO: check if this works properly
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
         queryBuilder.setTables(TransactionEntry.TABLE_NAME
-                + " LEFT OUTER JOIN " +  SplitEntry.TABLE_NAME + " ON "
+                + " LEFT OUTER JOIN " + SplitEntry.TABLE_NAME + " ON "
                 + TransactionEntry.TABLE_NAME + "." + TransactionEntry.COLUMN_UID + " = "
                 + SplitEntry.TABLE_NAME + "." + SplitEntry.COLUMN_TRANSACTION_UID);
         queryBuilder.setDistinct(true);

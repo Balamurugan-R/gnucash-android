@@ -649,13 +649,13 @@ public class Transaction {
         datePostedNode.appendChild(datePNode);
 
         Element dateEneteredNode = doc.createElement(GncXmlHelper.TAG_DATE_ENTERED);
-        Element dateENode = doc.createElement(GncXmlHelper.TAG_DATE_ENTERED);
+        Element dateENode = doc.createElement(GncXmlHelper.TAG_DATE);
         dateENode.appendChild(doc.createTextNode(GncXmlHelper.formatDate(mTimestamp)));
-        dateEneteredNode.appendChild(dateEneteredNode);
+        dateEneteredNode.appendChild(dateENode);
 
         Element descriptionNode = doc.createElement(GncXmlHelper.TAG_TRX_DESCRIPTION);
         if (mDescription != null) {
-            descriptionNode.appendChild(doc.createTextNode(mDescription));
+            descriptionNode.appendChild(doc.createTextNode(mName));
         }
 
         Element trnSplits = doc.createElement(GncXmlHelper.TAG_TRX_SPLITS);
@@ -664,8 +664,13 @@ public class Transaction {
         }
 
         Element transactionNode = doc.createElement(GncXmlHelper.TAG_TRANSACTION);
-        transactionNode.appendChild(idNode).appendChild(currencyNode).appendChild(datePostedNode)
-                .appendChild(dateEneteredNode).appendChild(descriptionNode).appendChild(trnSplits);
+        transactionNode.setAttribute("version", GncXmlHelper.BOOK_VERSION);
+        transactionNode.appendChild(idNode);
+        transactionNode.appendChild(currencyNode);
+        transactionNode.appendChild(datePostedNode);
+        transactionNode.appendChild(dateEneteredNode);
+        transactionNode.appendChild(descriptionNode);
+        transactionNode.appendChild(trnSplits);
 
         rootElement.appendChild(transactionNode);
     }

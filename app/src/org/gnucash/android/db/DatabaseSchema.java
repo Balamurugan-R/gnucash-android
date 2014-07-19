@@ -28,7 +28,13 @@ public class DatabaseSchema {
      * Database version.
      * With any change to the database schema, this number must increase
      */
-    static final int DATABASE_VERSION = 6;
+    static final int DATABASE_VERSION = 7;
+
+    /**
+     * Database version where Splits were introduced
+     */
+    public static final int SPLITS_DB_VERSION = 7;
+
 
     //no instances are to be instantiated
     private DatabaseSchema(){}
@@ -80,7 +86,7 @@ public class DatabaseSchema {
 
         public static final String COLUMN_TYPE                  = "type";
         public static final String COLUMN_AMOUNT                = "amount";
-        public static final String COLUMN_MEMO                  = "memo";
+        public static final String COLUMN_MEMO                  = "description"; //todo: change to memo
         public static final String COLUMN_ACCOUNT_UID           = "account_uid";
         public static final String COLUMN_TRANSACTION_UID       = "transaction_uid";
     }

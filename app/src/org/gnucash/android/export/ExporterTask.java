@@ -29,22 +29,11 @@ import android.util.Log;
 import android.widget.Toast;
 import org.gnucash.android.R;
 import org.gnucash.android.export.ofx.OfxExporter;
-import org.gnucash.android.export.ofx.OfxHelper;
 import org.gnucash.android.export.qif.QifExporter;
 import org.gnucash.android.export.xml.GncXmlExporter;
 import org.gnucash.android.ui.account.AccountsActivity;
 import org.gnucash.android.ui.transaction.dialog.TransactionsDeleteConfirmationDialogFragment;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.ProcessingInstruction;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
@@ -148,7 +137,7 @@ public class ExporterTask extends AsyncTask<ExportParams, Void, Boolean> {
                 File src = new File(mExportParams.getTargetFilepath());
                 new File(Environment.getExternalStorageDirectory() + "/gnucash/").mkdirs();
                 File dst = new File(Environment.getExternalStorageDirectory()
-                        + "/gnucash/" + ExportDialogFragment.buildExportFilename(mExportParams.getExportFormat()));
+                        + "/gnucash/" + Exporter.buildExportFilename(mExportParams.getExportFormat()));
 
                 try {
                     copyFile(src, dst);

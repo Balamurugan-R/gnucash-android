@@ -19,6 +19,10 @@ package org.gnucash.android.export;
 import android.content.Context;
 import org.gnucash.android.app.GnuCashApplication;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 /**
  * Base class for the different exporters
  *
@@ -31,6 +35,29 @@ public abstract class Exporter {
     public Exporter(ExportParams params){
         this.mParameters = params;
         mContext = GnuCashApplication.getAppContext();
+    }
+
+    /**
+     * Builds a file name based on the current time stamp for the exported file
+     * @return String containing the file name
+     */
+    public static String buildExportFilename(ExportFormat format) {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
+        String filename = formatter.format(
+                new Date(System.currentTimeMillis()))
+                + "_gnucash_all";
+        switch (format) {
+            case QIF:
+                filename += ".qif";
+                break;
+            case OFX:
+                filename += ".ofx";
+                break;
+            case GNC_XML:
+                filename += ".gnucash";
+                break;
+        }
+        return filename;
     }
 
     /**

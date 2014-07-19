@@ -622,7 +622,8 @@ public class Account {
         commodityNode.appendChild(cmdtyIdNode);
 
         Element commodityScuNode = doc.createElement(GncXmlHelper.TAG_COMMODITY_SCU);
-        commodityScuNode.appendChild(doc.createTextNode(Integer.toString(mCurrency.getDefaultFractionDigits()*10)));
+        int fractionDigits = mCurrency.getDefaultFractionDigits();
+        commodityScuNode.appendChild(doc.createTextNode(Integer.toString((int) Math.pow(10, fractionDigits))));
 
         Element descriptionNode = doc.createElement(GncXmlHelper.TAG_ACCT_DESCRIPTION);
         descriptionNode.appendChild(doc.createTextNode(mName));
@@ -638,9 +639,13 @@ public class Account {
 
         Element accountNode = doc.createElement(GncXmlHelper.TAG_ACCOUNT);
         accountNode.setAttribute("version", GncXmlHelper.BOOK_VERSION);
-        accountNode.appendChild(nameNode).appendChild(idNode).appendChild(typeNode)
-                .appendChild(commodityNode).appendChild(commodityScuNode)
-                .appendChild(descriptionNode).appendChild(acctSlotsNode);
+        accountNode.appendChild(nameNode);
+        accountNode.appendChild(idNode);
+        accountNode.appendChild(typeNode);
+        accountNode.appendChild(commodityNode);
+        accountNode.appendChild(commodityScuNode);
+        accountNode.appendChild(descriptionNode);
+        accountNode.appendChild(acctSlotsNode);
 
 
         if (mParentAccountUID != null && mParentAccountUID.trim().length() > 0){

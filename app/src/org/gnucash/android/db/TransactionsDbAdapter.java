@@ -19,6 +19,7 @@ package org.gnucash.android.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
@@ -47,6 +48,15 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
         mSplitsDbAdapter = new SplitsDbAdapter(context);
 	}
 
+    /**
+     * Overloaded constructor. Creates adapter for already open db
+     * @param db SQlite db instance
+     */
+    public TransactionsDbAdapter(SQLiteDatabase db) {
+        super(db);
+        mSplitsDbAdapter = new SplitsDbAdapter(db);
+    }
+
     @Override
     public void close() {
         super.close();
@@ -62,7 +72,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 	 */
 	public long addTransaction(Transaction transaction){
 		ContentValues contentValues = new ContentValues();
-		contentValues.put(TransactionEntry.COLUMN_NAME,         transaction.getName());
+		contentValues.put(TransactionEntry.COLUMN_NAME, transaction.getName());
 		contentValues.put(TransactionEntry.COLUMN_UID,          transaction.getUID());
 		contentValues.put(TransactionEntry.COLUMN_TIMESTAMP,    transaction.getTimeMillis());
 		contentValues.put(TransactionEntry.COLUMN_DESCRIPTION,  transaction.getDescription());
@@ -231,10 +241,24 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
 
         long recurrencePeriod = c.getLong(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_RECURRENCE_PERIOD));
         transaction.setRecurrencePeriod(recurrencePeriod);
-        transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_CURRENCY)));
-        long transactionID = c.getLong(c.getColumnIndexOrThrow(TransactionEntry._ID));
-        transaction.setSplits(mSplitsDbAdapter.getSplitsForTransaction(transactionID));
 
+        if (mDb.getVersion() < SPLITS_DB_VERSION){ //legacy, will be used once, when migrating the database
+            String accountUID = c.getString(c.getColumnIndexOrThrow(SplitEntry.COLUMN_ACCOUNT_UID));
+            String transferAccountUID = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.KEY_DOUBLE_ENTRY_ACCOUNT_UID));
+            String amountString = c.getString(c.getColumnIndexOrThrow(SplitEntry.COLUMN_AMOUNT));
+            String currencyCode = getCurrencyCode(accountUID);
+            Money amount = new Money(amountString, currencyCode);
+
+            Split split = new Split(amount.absolute(), accountUID);
+            TransactionType type = Transaction.getTypeForBalance(getAccountType(accountUID), amount.isNegative());
+            split.setType(type);
+            transaction.addSplit(split);
+            transaction.addSplit(split.createPair(transferAccountUID));
+        } else {
+            transaction.setCurrencyCode(c.getString(c.getColumnIndexOrThrow(TransactionEntry.COLUMN_CURRENCY)));
+            long transactionID = c.getLong(c.getColumnIndexOrThrow(TransactionEntry._ID));
+            transaction.setSplits(mSplitsDbAdapter.getSplitsForTransaction(transactionID));
+        }
 		return transaction;
 	}
 
@@ -443,5 +467,20 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
                 null, null, null,
                 TransactionEntry.COLUMN_NAME);
         return c;
+    }
+
+    /**
+     * Updates a specific entry of an transaction
+     * @param transactionUID Unique ID of the transaction
+     * @param columnKey Name of column to be updated
+     * @param newValue  New value to be assigned to the columnKey
+     * @return Number of records affected
+     */
+    public int updateTransaction(String transactionUID, String columnKey, String newValue){
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(columnKey, newValue);
+
+        return mDb.update(TransactionEntry.TABLE_NAME, contentValues,
+                TransactionEntry.COLUMN_UID + "= ?", new String[]{transactionUID});
     }
 }
