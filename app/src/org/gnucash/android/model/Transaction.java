@@ -238,27 +238,15 @@ public class Transaction {
      * @return Money imbalance of the transaction
      */
     public Money getImbalance(){
-        //TODO: Simplify this computation to use simple addtion/subtraction of CREDIT/DEBIT
         Money imbalance = Money.createZeroInstance(mCurrencyCode);
-        Money biggestSplit = imbalance;
-
-        //if we have just a split pair, then there is no imbalance
-        if (mSplitList.size() == 2){
-            if (mSplitList.get(0).isPairOf(mSplitList.get(1)))
-                return imbalance;
-        }
-
         for (Split split : mSplitList) {
-            if (biggestSplit.compareTo(split.getAmount()) < 0)
-                biggestSplit = split.getAmount();
+            Money amount = split.getAmount().absolute();
+            if (split.getType() == TransactionType.DEBIT)
+                imbalance = imbalance.subtract(amount);
+            else
+                imbalance = imbalance.add(amount);
         }
-
-        for (Split split : mSplitList) {
-            if (split.getAmount().equals(biggestSplit))
-                continue;
-            imbalance = imbalance.add(split.getAmount());
-        }
-        return biggestSplit.subtract(imbalance);
+        return imbalance;
     }
 
     /**
@@ -654,12 +642,15 @@ public class Transaction {
         dateEneteredNode.appendChild(dateENode);
 
         Element descriptionNode = doc.createElement(GncXmlHelper.TAG_TRX_DESCRIPTION);
-        if (mDescription != null) {
+        if (mName != null) {
             descriptionNode.appendChild(doc.createTextNode(mName));
         }
 
         Element trnSplits = doc.createElement(GncXmlHelper.TAG_TRX_SPLITS);
         for (Split split : mSplitList) {
+            if (split.getMemo() == null || split.getMemo().trim().length() == 0) {
+                split.setMemo(mDescription);
+            }
             split.toGncXml(doc, trnSplits);
         }
 

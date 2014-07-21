@@ -163,11 +163,7 @@ public class AccountsDbAdapter extends DatabaseAdapter {
      * @return Number of records affected
      */
     public int updateAccount(long accountId, String columnKey, String newValue){
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(columnKey, newValue);
-
-        return mDb.update(AccountEntry.TABLE_NAME, contentValues,
-                AccountEntry._ID + "=" + accountId, null);
+        return updateRecord(AccountEntry.TABLE_NAME, accountId, columnKey, newValue);
     }
 
 	/**

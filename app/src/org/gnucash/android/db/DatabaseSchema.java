@@ -86,7 +86,7 @@ public class DatabaseSchema {
 
         public static final String COLUMN_TYPE                  = "type";
         public static final String COLUMN_AMOUNT                = "amount";
-        public static final String COLUMN_MEMO                  = "description"; //todo: change to memo
+        public static final String COLUMN_MEMO                  = "memo";
         public static final String COLUMN_ACCOUNT_UID           = "account_uid";
         public static final String COLUMN_TRANSACTION_UID       = "transaction_uid";
     }

@@ -40,7 +40,7 @@ public abstract class GncXmlHelper {
     public static final String TAG_SLOT             = "slot";
     public static final String TAG_ACCT_DESCRIPTION = "act:description";
 
-    public static final String TAG_TRANSACTION      = "gnc:transcation";
+    public static final String TAG_TRANSACTION      = "gnc:transaction";
     public static final String TAG_TRX_ID           = "trn:id";
     public static final String TAG_TRX_CURRENCY     = "trn:currency";
     public static final String TAG_DATE_POSTED      = "trn:date-posted";
@@ -53,10 +53,9 @@ public abstract class GncXmlHelper {
     public static final String TAG_SPLIT_ID         = "split:id";
     public static final String TAG_SPLIT_MEMO       = "split:memo";
     public static final String TAG_RECONCILED_STATE = "split:reconciled_state";
-    public static final String TAG_QUANTITY         = "split:quantity";
     public static final String TAG_SPLIT_ACCOUNT    = "split:account";
     public static final String TAG_SPLIT_VALUE      = "split:value";
-    public static final String TAG_SPLIT_QUANTITY   = "split_quantity";
+    public static final String TAG_SPLIT_QUANTITY   = "split:quantity";
 
     public static final String BOOK_VERSION         = "2.0.0";
     public static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");

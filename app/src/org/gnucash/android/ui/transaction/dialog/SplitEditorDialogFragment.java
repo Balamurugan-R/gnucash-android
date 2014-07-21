@@ -28,10 +28,12 @@ import android.view.WindowManager;
 import android.widget.*;
 import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
-import org.gnucash.android.db.DatabaseHelper;
 import org.gnucash.android.db.DatabaseSchema;
 import org.gnucash.android.db.SplitsDbAdapter;
-import org.gnucash.android.model.*;
+import org.gnucash.android.model.AccountType;
+import org.gnucash.android.model.Money;
+import org.gnucash.android.model.Split;
+import org.gnucash.android.model.TransactionType;
 import org.gnucash.android.ui.UxArgument;
 import org.gnucash.android.ui.transaction.TransactionFormFragment;
 import org.gnucash.android.ui.transaction.TransactionsActivity;
@@ -53,9 +55,7 @@ import java.util.UUID;
 public class SplitEditorDialogFragment extends DialogFragment {
 
     private LinearLayout mSplitsLinearLayout;
-    private TextView mAssignedSplitsTextView;
-    private TextView mUnassignedAmountTextView;
-    private TextView mTransactionAmount;
+    private TextView mImbalanceTextView;
     private Button mAddSplit;
     private Button mSaveButton;
     private Button mCancelButton;
@@ -90,9 +90,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
         View view = inflater.inflate(R.layout.dialog_split_editor, container, false);
         mSplitsLinearLayout = (LinearLayout) view.findViewById(R.id.split_list_layout);
 
-        mAssignedSplitsTextView     = (TextView) view.findViewById(R.id.splits_sum);
-        mUnassignedAmountTextView   = (TextView) view.findViewById(R.id.unassigned_balance);
-        mTransactionAmount          = (TextView) view.findViewById(R.id.transaction_total);
+        mImbalanceTextView = (TextView) view.findViewById(R.id.imbalance_textview);
 
         mAddSplit   = (Button) view.findViewById(R.id.btn_add_split);
         mSaveButton = (Button) view.findViewById(R.id.btn_save);
@@ -206,31 +204,15 @@ public class SplitEditorDialogFragment extends DialogFragment {
 
         accountsSpinner.setOnItemSelectedListener(new TypeButtonLabelUpdater(splitTypeButton));
 
-        splitTypeButton.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            //TODO: look at the type of account and movement in account
+        splitTypeButton.setupCheckedListener(splitAmountEditText, splitCurrencyTextView);
+        splitTypeButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    int red = getResources().getColor(R.color.debit_red);
-                    splitTypeButton.setTextColor(red);
-                    splitAmountEditText.setTextColor(red);
-                    splitCurrencyTextView.setTextColor(red);
-                } else {
-                    int green = getResources().getColor(R.color.credit_green);
-                    splitTypeButton.setTextColor(green);
-                    splitAmountEditText.setTextColor(green);
-                    splitCurrencyTextView.setTextColor(green);
-                }
-                String amountText = splitAmountEditText.getText().toString();
-                if (amountText.length() > 0) {
-                    String changedSignText = TransactionFormFragment.parseInputToDecimal(amountText).negate().toPlainString();
-                    splitAmountEditText.setText(changedSignText);
-                }
+            public void onClick(View view) {
                 updateTotal();
             }
         });
 
-        splitTypeButton.setChecked(mBaseAmount.signum() < 0);
+        splitTypeButton.setChecked(mBaseAmount.signum() > 0);
         splitUidTextView.setText(UUID.randomUUID().toString());
 
         updateTransferAccountsList(accountsSpinner);
@@ -242,12 +224,6 @@ public class SplitEditorDialogFragment extends DialogFragment {
             splitAmountEditText.setText(split.getAmount().toPlainString());
             splitMemoEditText.setText(split.getMemo());
             splitUidTextView.setText(split.getUID());
-            accountType = mAccountsDbAdapter.getAccountType(split.getAccountUID());
-            if (accountType.hasDebitNormalBalance()){
-                splitTypeButton.setChecked(split.getType() == TransactionType.CREDIT);
-            } else {
-                splitTypeButton.setChecked(split.getType() == TransactionType.DEBIT);
-            }
         }
         splitTypeButton.setAccountType(accountType);
     }
@@ -319,10 +295,10 @@ public class SplitEditorDialogFragment extends DialogFragment {
         List<Split> splitList = new ArrayList<Split>();
         for (View splitView : mSplitItemViewList) {
             EditText splitMemoEditText              = (EditText)    splitView.findViewById(R.id.input_split_memo);
-            final EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.input_split_amount);
+            EditText splitAmountEditText      = (EditText)    splitView.findViewById(R.id.input_split_amount);
             Spinner accountsSpinner                 = (Spinner)     splitView.findViewById(R.id.input_accounts_spinner);
-            final ToggleButton splitTypeButton      = (ToggleButton) splitView.findViewById(R.id.btn_split_type);
             TextView splitUidTextView               = (TextView)    splitView.findViewById(R.id.split_uid);
+            TransactionTypeToggleButton splitTypeButton = (TransactionTypeToggleButton) splitView.findViewById(R.id.btn_split_type);
 
             BigDecimal amountBigDecimal = TransactionFormFragment.parseInputToDecimal(splitAmountEditText.getText().toString());
             String currencyCode = mAccountsDbAdapter.getCurrencyCode(accountsSpinner.getSelectedItemId());
@@ -330,20 +306,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
             Money amount = new Money(amountBigDecimal, Currency.getInstance(currencyCode));
             Split split = new Split(amount, accountUID);
             split.setMemo(splitMemoEditText.getText().toString());
-            AccountType accountType = mAccountsDbAdapter.getAccountType(accountUID);
-            if (accountType.hasDebitNormalBalance()){
-                //if we show negative value to a user, then that is a credit for "debit balance" accounts
-                if (splitTypeButton.isChecked())
-                    split.setType(TransactionType.CREDIT);
-                else
-                    split.setType(TransactionType.DEBIT);
-            } else {
-                //if we show negative value to a user, then that is a debit for "debit balance" accounts
-                if (splitTypeButton.isChecked())
-                    split.setType(TransactionType.DEBIT);
-                else
-                    split.setType(TransactionType.CREDIT);
-            }
+            split.setType(splitTypeButton.getTransactionType());
             split.setUID(splitUidTextView.getText().toString().trim());
             splitList.add(split);
         }
@@ -355,37 +318,19 @@ public class SplitEditorDialogFragment extends DialogFragment {
      * Computes the total of the splits, the unassigned balance and the split sum
      */
     private void updateTotal(){
-        List<Split> splitList = extractSplitsFromView();
-        String currencyCode = mAccountsDbAdapter.getCurrencyCode(mAccountId);
-        Money zeroInstance  = Money.createZeroInstance(currencyCode);
+        List<Split> splitList   = extractSplitsFromView();
+        String currencyCode     = mAccountsDbAdapter.getCurrencyCode(mAccountId);
+        Money splitSum          = Money.createZeroInstance(currencyCode);
 
-        Money transactionAmount = zeroInstance; //new Money(mBaseAmount, Currency.getInstance(currencyCode));
-        Money splitSum          = zeroInstance;
         for (Split split : splitList) {
             Money amount = split.getAmount().absolute();
-            transactionAmount = amount.compareTo(transactionAmount) > 0 ? amount : transactionAmount;
-            splitSum = splitSum.add(amount);
+            if (split.getType() == TransactionType.DEBIT)
+                splitSum = splitSum.subtract(amount);
+            else
+                splitSum = splitSum.add(amount);
         }
 
-        Money unassigned = zeroInstance;
-        Money assigned = zeroInstance;
-
-        if (splitList.size() > 1){
-            assigned = splitSum.subtract(transactionAmount);
-            unassigned = transactionAmount.subtract(assigned);
-        }
-
-        displayBalance(mAssignedSplitsTextView, assigned);
-        displayBalance(mUnassignedAmountTextView, unassigned);
-        displayBalance(mTransactionAmount, transactionAmount);
-    }
-
-    private void displayBalance(TextView balanceTextView, Money balance){
-        balanceTextView.setText(balance.formattedString());
-        //TODO: Consider the type of account and movement caused
-//        int fontColor = balance.isNegative() ? getActivity().getResources().getColor(R.color.debit_red) :
-//                getActivity().getResources().getColor(R.color.credit_green);
-//        balanceTextView.setTextColor(fontColor);
+        TransactionsActivity.displayBalance(mImbalanceTextView, splitSum);
     }
 
     @Override

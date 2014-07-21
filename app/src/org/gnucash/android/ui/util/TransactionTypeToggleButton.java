@@ -18,10 +18,14 @@ package org.gnucash.android.ui.util;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.ToggleButton;
 import org.gnucash.android.R;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.TransactionType;
+import org.gnucash.android.ui.transaction.TransactionFormFragment;
 
 /**
  * A special type of {@link android.widget.ToggleButton} which displays the appropriate CREDIT/DEBIT labels for the
@@ -61,6 +65,7 @@ public class TransactionTypeToggleButton extends ToggleButton {
                 setTextOff("Charge");
                 break;
             case ASSET:
+            case EQUITY:
             case LIABILITY:
                 setTextOn("Decrease");
                 setTextOff("Increase");
@@ -81,10 +86,6 @@ public class TransactionTypeToggleButton extends ToggleButton {
                 setTextOn("Payment");
                 setTextOff("Invoice");
                 break;
-            case EQUITY:
-                setTextOn("Decrease");
-                setTextOff("Increase");
-                break;
             case STOCK:
             case MUTUAL:
                 setTextOn("Buy");
@@ -100,6 +101,19 @@ public class TransactionTypeToggleButton extends ToggleButton {
         invalidate();
     }
 
+    /**
+     * Set a checked change listener to monitor the amount view and currency views and update the display (color & balance accordingly)
+     * @param amoutView Amount string {@link android.widget.EditText}
+     * @param currencyTextView Currency symbol text view
+     */
+    public void setupCheckedListener(EditText amoutView, TextView currencyTextView){
+        setOnCheckedChangeListener(new OnTypeChangedListener(amoutView, currencyTextView));
+    }
+
+    /**
+     * Returns the account type associated with this button
+     * @return
+     */
     public AccountType getAccountType(){
         return mAccountType;
     }
@@ -109,6 +123,40 @@ public class TransactionTypeToggleButton extends ToggleButton {
             return isChecked() ? TransactionType.CREDIT : TransactionType.DEBIT;
         } else {
             return isChecked() ? TransactionType.DEBIT : TransactionType.CREDIT;
+        }
+    }
+
+    private class OnTypeChangedListener implements OnCheckedChangeListener{
+        private EditText mAmountEditText;
+        private TextView mCurrencyTextView;
+        /**
+         * Constructor with the amount view
+         * @param amountEditText
+         */
+        public OnTypeChangedListener(EditText amountEditText, TextView currencyTextView){
+            this.mAmountEditText = amountEditText;
+            this.mCurrencyTextView = currencyTextView;
+        }
+
+        @Override
+        public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
+            if (isChecked){
+                int red = getResources().getColor(R.color.debit_red);
+                TransactionTypeToggleButton.this.setTextColor(red);
+                mAmountEditText.setTextColor(red);
+                mCurrencyTextView.setTextColor(red);
+            }
+            else {
+                int green = getResources().getColor(R.color.credit_green);
+                TransactionTypeToggleButton.this.setTextColor(green);
+                mAmountEditText.setTextColor(green);
+                mCurrencyTextView.setTextColor(green);
+            }
+            String amountText = mAmountEditText.getText().toString();
+            if (amountText.length() > 0){
+                String changedSignText = TransactionFormFragment.parseInputToDecimal(amountText).negate().toPlainString();
+                mAmountEditText.setText(changedSignText); //trigger an edit to update the number sign
+            }
         }
     }
 }

@@ -297,6 +297,7 @@ public class TransactionFormFragment extends SherlockFragment implements
                 mTransaction.setExported(false);
                 mTransaction.setTime(System.currentTimeMillis());
                 initializeViewsWithTransaction();
+                setAmountEditViewVisible(View.GONE);
             }
         });
 
@@ -331,8 +332,7 @@ public class TransactionFormFragment extends SherlockFragment implements
         //if there are more than two splits (which is the default for one entry), then
         //disable editing of the transfer account. User should open editor
         if (mTransaction.getSplits().size() > 2) {
-            getView().findViewById(R.id.layout_double_entry).setVisibility(View.GONE);
-            mTransactionTypeButton.setVisibility(View.GONE); //can't toggle anything from here
+            setAmountEditViewVisible(View.GONE);
         } else {
             for (Split split : mTransaction.getSplits()) {
                 //two splits, one belongs to this account and the other to another account
@@ -349,6 +349,11 @@ public class TransactionFormFragment extends SherlockFragment implements
 		mCurrencyTextView.setText(accountCurrency.getSymbol());
 
         setSelectedRecurrenceOption();
+    }
+
+    private void setAmountEditViewVisible(int visibility) {
+        getView().findViewById(R.id.layout_double_entry).setVisibility(visibility);
+        mTransactionTypeButton.setVisibility(visibility);
     }
 
     /**
@@ -469,29 +474,7 @@ public class TransactionFormFragment extends SherlockFragment implements
             }
         });
 
-		mTransactionTypeButton.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-
-			@Override
-			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-				if (isChecked){
-					int red = getResources().getColor(R.color.debit_red);
-					mTransactionTypeButton.setTextColor(red);
-					mAmountEditText.setTextColor(red);
-					mCurrencyTextView.setTextColor(red);
-				}
-				else {
-					int green = getResources().getColor(R.color.credit_green);
-					mTransactionTypeButton.setTextColor(green);
-					mAmountEditText.setTextColor(green);
-					mCurrencyTextView.setTextColor(green);
-				}
-				String amountText = mAmountEditText.getText().toString();
-				if (amountText.length() > 0){
-                    String changedSignText = parseInputToDecimal(amountText).negate().toPlainString();
-					mAmountEditText.setText(changedSignText); //trigger an edit to update the number sign
-				}
-			}
-		});
+		mTransactionTypeButton.setupCheckedListener(mAmountEditText, mCurrencyTextView);
 
 		mDateTextView.setOnClickListener(new View.OnClickListener() {
 

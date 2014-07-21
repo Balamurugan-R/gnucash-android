@@ -75,6 +75,9 @@ public class SplitsDbAdapter extends DatabaseAdapter {
             rowId = mDb.insert(SplitEntry.TABLE_NAME, null, contentValues);
         }
 
+        //when a split is updated, we want mark the transaction as not exported
+        updateRecord(TransactionEntry.TABLE_NAME, getTransactionID(split.getTransactionUID()),
+                TransactionEntry.COLUMN_EXPORTED, String.valueOf(rowId > 0 ? 1 : 0));
         return rowId;
     }
 

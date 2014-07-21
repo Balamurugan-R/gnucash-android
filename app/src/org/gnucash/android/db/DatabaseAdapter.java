@@ -16,6 +16,7 @@
 
 package org.gnucash.android.db;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
@@ -266,4 +267,18 @@ public abstract class DatabaseAdapter {
         return id;
     }
 
+    /**
+     * Updates a record in the table
+     * @param recordId Database ID of the record to be updated
+     * @param columnKey Name of column to be updated
+     * @param newValue  New value to be assigned to the columnKey
+     * @return Number of records affected
+     */
+    public int updateRecord(String tableName, long recordId, String columnKey, String newValue){
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(columnKey, newValue);
+
+        return mDb.update(tableName, contentValues,
+                DatabaseSchema.CommonColumns._ID + "=" + recordId, null);
+    }
 }

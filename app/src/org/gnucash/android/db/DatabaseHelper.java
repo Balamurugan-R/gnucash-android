@@ -213,9 +213,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
 
             if (oldVersion == 6 && newVersion >= DatabaseSchema.SPLITS_DB_VERSION){
+                //TODO: add account description and starting balance
+
                 Log.i(LOG_TAG, "Upgrading database to version 7");
+                //TODO: Also backup QIF file here just in case
                 String filepath = MigrationHelper.exportGnucashXML(db);
 
+                //FIXME: Do not lose recurring transactions. Migrate those too
                 dropAllDatabaseTables(db);
                 createDatabaseTables(db);
 

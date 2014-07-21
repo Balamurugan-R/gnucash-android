@@ -390,6 +390,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         public void bindView(View view, Context context, Cursor cursor) {
             super.bindView(view, context, cursor);
             AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(getActivity());
+            //FIXME: Account ID cannot be gotten from transactions anymore. Make this fragment account-agnostic
             long accountID = accountsDbAdapter.getAccountID(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID)));
 
             long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry._ID));

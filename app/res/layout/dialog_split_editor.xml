@@ -55,25 +55,9 @@ limitations under the License.
                     android:layout_height="match_parent"
                     android:textAppearance="?android:attr/textAppearanceSmall"
                     android:gravity="center_vertical"
-                    android:text="Split sum:"/>
+                    android:text="Imbalance:"/>
 
-            <TextView android:id="@+id/splits_sum"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:textAppearance="?android:attr/textAppearanceSmall"
-                      android:gravity="right|center_vertical"
-                      android:text="$1000"/>
-        </TableRow>
-        <TableRow>
-            <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:gravity="center_vertical"
-                    android:text="Unassigned:"/>
-
-            <TextView android:id="@+id/unassigned_balance"
+            <TextView android:id="@+id/imbalance_textview"
                       android:layout_width="0dp"
                       android:layout_height="match_parent"
                       android:layout_weight="1"
@@ -81,24 +65,6 @@ limitations under the License.
                       android:gravity="right|center_vertical"
                       android:text="$200"/>
         </TableRow>
-        <TableRow>
-            <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:gravity="center_vertical"
-                    android:text="Total Amount:"/>
-
-            <TextView android:id="@+id/transaction_total"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:layout_marginLeft="@dimen/dialog_padding"
-                      android:textAppearance="?android:attr/textAppearanceSmall"
-                      android:gravity="right|center_vertical"
-                      android:text="$1299"/>
-        </TableRow>
-
         <Button android:id="@+id/btn_add_split"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
