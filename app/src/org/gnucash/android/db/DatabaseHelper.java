@@ -22,6 +22,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+import org.gnucash.android.export.ExportFormat;
 import org.gnucash.android.model.AccountType;
 
 import static org.gnucash.android.db.DatabaseSchema.*;
@@ -216,10 +217,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 //TODO: add account description and starting balance
 
                 Log.i(LOG_TAG, "Upgrading database to version 7");
-                //TODO: Also backup QIF file here just in case
-                String filepath = MigrationHelper.exportGnucashXML(db);
 
-                //FIXME: Do not lose recurring transactions. Migrate those too
+                //export all formats so that user does not lose data at any cost
+                MigrationHelper.exportDatabase(db, ExportFormat.QIF);
+                MigrationHelper.exportDatabase(db, ExportFormat.OFX);
+                String filepath = MigrationHelper.exportDatabase(db, ExportFormat.GNC_XML);
+
                 dropAllDatabaseTables(db);
                 createDatabaseTables(db);
 

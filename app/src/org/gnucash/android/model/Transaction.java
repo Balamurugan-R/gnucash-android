@@ -141,7 +141,9 @@ public class Transaction {
         initDefaults();
         setName(transaction.getName());
         setDescription(transaction.getDescription());
-        setSplits(transaction.getSplits());
+        for (Split split : transaction.mSplitList) {
+            addSplit(new Split(split, true));
+        }
         setExported(transaction.isExported());
         setTime(transaction.getTimeMillis());
         if (!generateNewUID){
@@ -267,7 +269,7 @@ public class Transaction {
         for (Split split : splitList) {
             if (!split.getAccountUID().equals(accountUID))
                 continue;
-            Money absAmount = split.getAmount().absolute();
+            Money absAmount = split.getAmount().absolute().withCurrency(Currency.getInstance(currencyCode));
             boolean isDebitSplit = split.getType() == TransactionType.DEBIT;
             if (isDebitAccount) {
                 if (isDebitSplit) {
@@ -426,6 +428,18 @@ public class Transaction {
         return type;
     }
 
+    /**
+     * Returns true if the amount represents a decrease for the account balance in accounty of type <code>accountType</code>, false otherwise
+     * @return true if the amount represents a decrease movement for the account balance, false otherwise
+     * @see #getTypeForBalance(AccountType, boolean)
+     */
+    public static boolean shouldDecreaseBalance(AccountType accountType, TransactionType transactionType){
+        if (accountType.hasDebitNormalBalance()){
+            return transactionType == TransactionType.CREDIT;
+        } else
+            return transactionType == TransactionType.DEBIT;
+    }
+
 	/**
 	 * Sets the exported flag on the transaction
 	 * @param isExported <code>true</code> if the transaction has been exported, <code>false</code> otherwise
@@ -465,7 +479,7 @@ public class Transaction {
      * @param doc XML document to which transaction should be added
      * @param accountUID Unique Identifier of the account which called the method.  @return Element in DOM corresponding to transaction
      */
-	public Element toOfx(Document doc, String accountUID){
+	public Element toOFX(Document doc, String accountUID){
         Money balance = getBalance(accountUID);
         TransactionType transactionType = balance.isNegative() ? TransactionType.DEBIT : TransactionType.CREDIT;
 
@@ -563,6 +577,7 @@ public class Transaction {
                 transactionQIFBuilder.append(QifHelper.SPLIT_MEMO_PREFIX).append(memo).append(newLine);
             }
             Money amount = split.getAmount();
+//            if (shouldDecreaseBalance(accountsDbAdapter.getAccountType(split.getAccountUID()), split.getType()))
             if (split.getType() == TransactionType.DEBIT)
                 amount = amount.negate();
 
@@ -661,6 +676,12 @@ public class Transaction {
         transactionNode.appendChild(datePostedNode);
         transactionNode.appendChild(dateEneteredNode);
         transactionNode.appendChild(descriptionNode);
+        //TODO: Improve xml compatibilty with desktop for scheduled actions
+        if (mRecurrencePeriod != 0) {
+            Element recurrenceNode = doc.createElement(GncXmlHelper.TAG_RECURRENCE_PERIOD);
+            recurrenceNode.appendChild(doc.createTextNode(String.valueOf(mRecurrencePeriod)));
+            transactionNode.appendChild(recurrenceNode);
+        }
         transactionNode.appendChild(trnSplits);
 
         rootElement.appendChild(transactionNode);

@@ -20,6 +20,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
 
+import android.database.sqlite.SQLiteDatabase;
 import android.preference.PreferenceManager;
 import org.gnucash.android.R;
 import org.gnucash.android.export.ExportParams;
@@ -49,20 +50,22 @@ public class OfxExporter extends Exporter{
 	 * List of accounts in the expense report
 	 */
 	private List<Account> mAccountsList;
-	
-	/**
-	 * Flag indicating whether to ignore the 'exported' on transactions
-	 * If set to true, then all transactions will be exported, regardless of whether they were exported previously
-	 */
-	private boolean mExportAll = false;
 
     /**
 	 * Builds an XML representation of the {@link Account}s and {@link Transaction}s in the database
 	 */
 	public OfxExporter(ExportParams params) {
         super(params);
-        mExportAll = params.shouldExportAllTransactions();
 	}
+
+    /**
+     * Initializes the OFX exporter with a specific database to export from
+     * @param params Export parameters/options
+     * @param db SQLite database object (should be already open)
+     */
+    public OfxExporter(ExportParams params, SQLiteDatabase db){
+        super(params, db);
+    }
 
     /**
 	 * Converts all expenses into OFX XML format and adds them to the XML document
@@ -88,7 +91,7 @@ public class OfxExporter extends Exporter{
 				continue; 
 			
 			//add account details (transactions) to the XML document			
-			account.toOfx(doc, statementTransactionResponse, mExportAll);
+			account.toOfx(doc, statementTransactionResponse, mParameters.shouldExportAllTransactions());
 			
 			//mark as exported
 			accountsDbAdapter.markAsExported(account.getUID());
@@ -99,10 +102,9 @@ public class OfxExporter extends Exporter{
 
     @Override
     public String generateExport() throws ExporterException {
-        AccountsDbAdapter dbAdapter = new AccountsDbAdapter(mContext);
-        mAccountsList = mExportAll ? dbAdapter.getAllAccounts() : dbAdapter.getExportableAccounts();
-        dbAdapter.close();
-
+        mAccountsList = mParameters.shouldExportAllTransactions() ?
+                mAccountsDbAdapter.getAllAccounts() : mAccountsDbAdapter.getExportableAccounts();
+        mAccountsDbAdapter.close();
 
         DocumentBuilderFactory docFactory = DocumentBuilderFactory
                 .newInstance();

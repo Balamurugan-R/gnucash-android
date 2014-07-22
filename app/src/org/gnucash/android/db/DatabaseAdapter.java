@@ -93,9 +93,12 @@ public abstract class DatabaseAdapter {
 	 * Close the database
 	 */
 	public void close(){
-		if (mDbHelper != null)
+        //only close if we opened the db ourselves (through the helper)
+        //if we received the database object (during migrations) leave it alone
+		if (mDbHelper != null) {
             mDbHelper.close();
-		mDb.close();
+            mDb.close();
+        }
 	}
 
     /**

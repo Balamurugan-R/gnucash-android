@@ -58,6 +58,24 @@ public class Split {
         mUID = UUID.randomUUID().toString().replaceAll("-","");
     }
 
+    /**
+     * Clones the <code>sourceSplit</code> to create a new instance with same fields
+     * @param sourceSplit Split to be cloned
+     * @param generateUID Determines if the clone should have a new UID or should maintain the one from source
+     */
+    public Split(Split sourceSplit, boolean generateUID){
+        this.mMemo          = sourceSplit.mMemo;
+        this.mAccountUID    = sourceSplit.mAccountUID;
+        this.mSplitType     = sourceSplit.mSplitType;
+        this.mTransactionUID = sourceSplit.mTransactionUID;
+        this.mAmount        = sourceSplit.mAmount.absolute();
+
+        if (generateUID){
+            mUID = UUID.randomUUID().toString().replaceAll("-","");
+        } else {
+            this.mUID           = sourceSplit.mUID;
+        }
+    }
 
     public Money getAmount() {
         return mAmount;
@@ -113,6 +131,15 @@ public class Split {
         pair.setMemo(mMemo);
 
         return pair;
+    }
+
+    protected Split clone(){
+        Split split = new Split(mAmount, mAccountUID);
+        split.mUID = mUID;
+        split.setType(mSplitType);
+        split.setMemo(mMemo);
+        split.setTransactionUID(mTransactionUID);
+        return split;
     }
 
     /**

@@ -16,6 +16,8 @@
 
 package org.gnucash.android.db;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -388,38 +390,6 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
         return statement.simpleQueryForLong();
 	}
 	
-
-	/**
-	 * Returns true if <code>rowId</code> and <code>accountUID</code> belong to the same account
-	 * @param rowId Database record ID
-	 * @param accountUID Unique Identifier string of the account
-	 * @return <code>true</code> if both are properties of the same account, <code>false</code> otherwise
-	 */
-	public boolean isSameAccount(long rowId, String accountUID){
-		return getAccountID(accountUID) == rowId;
-	}
-
-    /**
-     * Returns Unique Identifier of account to which <code>transaction</code> belongs
-     * @param transactionID Record ID of the transaction
-     * @return Unique Identifier string of account to which transaction belongs
-     */
-    public String getAccountUidFromTransaction(long transactionID){
-        //TODO: get rid of this method
-        Cursor c = mDb.query(TransactionEntry.TABLE_NAME,
-                new String[]{SplitEntry.COLUMN_ACCOUNT_UID},
-                TransactionEntry._ID + "=" + transactionID,
-                null, null, null, null);
-        String accountUID = null;
-        if (c != null) {
-            if (c.moveToFirst()) {
-                accountUID = c.getString(0);
-            }
-            c.close();
-        }
-        return accountUID;
-    }
-
     /**
      * Returns the database record ID for the specified transaction UID
      * @param transactionUID Unique idendtifier of the transaction
@@ -477,10 +447,23 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
      * @return Number of records affected
      */
     public int updateTransaction(String transactionUID, String columnKey, String newValue){
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(columnKey, newValue);
+        return updateRecord(TransactionEntry.TABLE_NAME, getID(transactionUID), columnKey, newValue);
+    }
 
-        return mDb.update(TransactionEntry.TABLE_NAME, contentValues,
-                TransactionEntry.COLUMN_UID + "= ?", new String[]{transactionUID});
+    /**
+     * Schedules <code>recurringTransaction</code> to be executed at specific intervals.
+     * The interval period is packaged within the transaction
+     * @param recurringTransaction Transaction which is to be recurring
+     */
+    public void scheduleTransaction(Transaction recurringTransaction) {
+        long recurrencePeriodMillis = recurringTransaction.getRecurrencePeriod();
+        long firstRunMillis = System.currentTimeMillis() + recurrencePeriodMillis;
+        long recurringTransactionId = addTransaction(recurringTransaction);
+
+        PendingIntent recurringPendingIntent = PendingIntent.getBroadcast(mContext,
+                (int)recurringTransactionId, Transaction.createIntent(recurringTransaction), PendingIntent.FLAG_UPDATE_CURRENT);
+        AlarmManager alarmManager = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, firstRunMillis,
+                recurrencePeriodMillis, recurringPendingIntent);
     }
 }

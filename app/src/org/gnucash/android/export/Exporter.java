@@ -17,7 +17,9 @@
 package org.gnucash.android.export;
 
 import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
 import org.gnucash.android.app.GnuCashApplication;
+import org.gnucash.android.db.AccountsDbAdapter;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -30,10 +32,28 @@ import java.util.Locale;
  */
 public abstract class Exporter {
     protected ExportParams mParameters;
+
+    /**
+     * Adapter for retrieving accounts to export
+     * Subclasses should close this object when they are done with exporting
+     */
+    protected AccountsDbAdapter mAccountsDbAdapter;
     protected Context mContext;
 
     public Exporter(ExportParams params){
         this.mParameters = params;
+        mContext = GnuCashApplication.getAppContext();
+        mAccountsDbAdapter = new AccountsDbAdapter(mContext);
+    }
+
+    /**
+     * Overloaded constructor, provided the database object to use
+     * @param params Export parameters
+     * @param db Database from which to export (should be initialized and open)
+     */
+    public Exporter(ExportParams params, SQLiteDatabase db){
+        this.mParameters = params;
+        mAccountsDbAdapter = new AccountsDbAdapter(db);
         mContext = GnuCashApplication.getAppContext();
     }
 
@@ -45,18 +65,7 @@ public abstract class Exporter {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
         String filename = formatter.format(
                 new Date(System.currentTimeMillis()))
-                + "_gnucash_all";
-        switch (format) {
-            case QIF:
-                filename += ".qif";
-                break;
-            case OFX:
-                filename += ".ofx";
-                break;
-            case GNC_XML:
-                filename += ".gnucash";
-                break;
-        }
+                + "_gnucash_export" + format.getExtension();
         return filename;
     }
 

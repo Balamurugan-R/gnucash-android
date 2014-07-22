@@ -33,6 +33,23 @@ public enum ExportFormat {
         this.mDescription = description;
     }
 
+    /**
+     * Returns the file extension for this export format including the period e.g. ".qif"
+     * @return String file extension for the export format
+     */
+    public String getExtension(){
+        switch (this) {
+            case QIF:
+                return ".qif";
+            case OFX:
+                return ".ofx";
+            case GNC_XML:
+                return ".gnca";
+            default:
+                return ".txt";
+        }
+    }
+
     @Override
     public String toString() {
         return mDescription;

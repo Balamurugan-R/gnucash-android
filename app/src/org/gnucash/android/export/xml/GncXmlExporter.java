@@ -45,11 +45,9 @@ public class GncXmlExporter extends Exporter{
 
     private Document mDocument;
     private TransactionsDbAdapter mTransactionsDbAdapter;
-    private AccountsDbAdapter mAccountsDbAdapter;
 
     public GncXmlExporter(ExportParams params){
         super(params);
-        mAccountsDbAdapter = new AccountsDbAdapter(mContext);
         mTransactionsDbAdapter = new TransactionsDbAdapter(mContext);
     }
 
@@ -60,8 +58,7 @@ public class GncXmlExporter extends Exporter{
      * @param db SQLite database from which to export
      */
     public GncXmlExporter(ExportParams params, SQLiteDatabase db){
-        super(params);
-        mAccountsDbAdapter = new AccountsDbAdapter(db);
+        super(params, db);
         mTransactionsDbAdapter = new TransactionsDbAdapter(db);
     }
 
@@ -127,6 +124,8 @@ public class GncXmlExporter extends Exporter{
             transaction.toGncXml(mDocument, bookNode);
         }
         mDocument.appendChild(rootElement);
+        mAccountsDbAdapter.close();
+        mTransactionsDbAdapter.close();
     }
 
     @Override

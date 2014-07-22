@@ -57,8 +57,12 @@ public abstract class GncXmlHelper {
     public static final String TAG_SPLIT_VALUE      = "split:value";
     public static final String TAG_SPLIT_QUANTITY   = "split:quantity";
 
+    //TODO: Remove this in the future when scheduled transactions are improved
+    public static final String TAG_RECURRENCE_PERIOD = "trn:recurrence_period";
+
     public static final String BOOK_VERSION         = "2.0.0";
     public static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
+
 
     /**
      * Formats dates for the GnuCash XML format

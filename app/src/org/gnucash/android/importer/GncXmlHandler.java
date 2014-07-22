@@ -245,6 +245,10 @@ public class GncXmlHandler extends DefaultHandler {
             }
         }
 
+        if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_RECURRENCE_PERIOD)){
+            mTransaction.setRecurrencePeriod(Long.parseLong(characterString));
+        }
+
         if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_SPLIT_ID)){
             mSplit.setUID(characterString);
         }
@@ -268,7 +272,11 @@ public class GncXmlHandler extends DefaultHandler {
         }
 
         if (qualifiedName.equalsIgnoreCase(GncXmlHelper.TAG_TRANSACTION)){
-            mTransactionsDbAdapter.addTransaction(mTransaction);
+            if (mTransaction.getRecurrencePeriod() > 0){ //TODO: Fix this when scheduled actions are expanded
+                mTransactionsDbAdapter.scheduleTransaction(mTransaction);
+            } else {
+                mTransactionsDbAdapter.addTransaction(mTransaction);
+            }
             mTransaction = null;
         }
 

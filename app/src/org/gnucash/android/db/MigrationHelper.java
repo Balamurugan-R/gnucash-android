@@ -24,6 +24,7 @@ import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.export.ExportFormat;
 import org.gnucash.android.export.ExportParams;
 import org.gnucash.android.export.Exporter;
+import org.gnucash.android.export.qif.QifExporter;
 import org.gnucash.android.export.xml.GncXmlExporter;
 import org.gnucash.android.importer.GncXmlHandler;
 import org.gnucash.android.importer.GncXmlImportTask;
@@ -113,21 +114,30 @@ public class MigrationHelper {
      * Exports the database to a GnuCash XML file and returns the path to the file
      * @return String with exported GnuCash XML
      */
-    static String exportGnucashXML(SQLiteDatabase db) {
+    static String exportDatabase(SQLiteDatabase db, ExportFormat format) {
         Log.i(LOG_TAG, "Exporting database to GnuCash XML");
-        ExportParams exportParams = new ExportParams(ExportFormat.GNC_XML);
+        ExportParams exportParams = new ExportParams(format);
         exportParams.setExportAllTransactions(true);
         exportParams.setExportTarget(ExportParams.ExportTarget.SD_CARD);
         exportParams.setDeleteTransactionsAfterExport(false);
 
         new File(Environment.getExternalStorageDirectory() + "/gnucash/").mkdirs();
         exportParams.setTargetFilepath(Environment.getExternalStorageDirectory()
-                + "/gnucash/" + Exporter.buildExportFilename(ExportFormat.GNC_XML));
+                + "/gnucash/" + Exporter.buildExportFilename(format));
 
+        Exporter exporter = null;
+        switch (format){
+            case QIF:
+                exporter = new QifExporter(exportParams, db);
+                break;
+            case GNC_XML:
+            default:
+                exporter = new GncXmlExporter(exportParams, db);
+        }
         try {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream(exportParams.getTargetFilepath()), "UTF-8"));
-            writer.write(new GncXmlExporter(exportParams, db).generateExport());
+            writer.write(exporter.generateExport());
 
             writer.flush();
             writer.close();

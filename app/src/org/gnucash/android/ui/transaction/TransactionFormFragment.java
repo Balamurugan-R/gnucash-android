@@ -615,17 +615,14 @@ public class TransactionFormFragment extends SherlockFragment implements
         if (recurrenceIndex != 0) {
             String[] recurrenceOptions = getResources().getStringArray(R.array.recurrence_period_millis);
             long recurrencePeriodMillis = Long.parseLong(recurrenceOptions[recurrenceIndex]);
-            long firstRunMillis = System.currentTimeMillis() + recurrencePeriodMillis;
+            Transaction recurringTransaction;
+            if (mTransaction.getRecurrencePeriod() > 0) //if we are editing the recurring transaction itself...
+                recurringTransaction = mTransaction;
+            else
+                recurringTransaction = new Transaction(mTransaction, true);
 
-            Transaction recurringTransaction = new Transaction(mTransaction, true);
             recurringTransaction.setRecurrencePeriod(recurrencePeriodMillis);
-            long recurringTransactionId = mTransactionsDbAdapter.addTransaction(recurringTransaction);
-
-            PendingIntent recurringPendingIntent = PendingIntent.getBroadcast(getActivity().getApplicationContext(),
-                    (int)recurringTransactionId, Transaction.createIntent(mTransaction), PendingIntent.FLAG_UPDATE_CURRENT);
-            AlarmManager alarmManager = (AlarmManager) getActivity().getSystemService(Context.ALARM_SERVICE);
-            alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, firstRunMillis,
-                    recurrencePeriodMillis, recurringPendingIntent);
+            mTransactionsDbAdapter.scheduleTransaction(recurringTransaction);
         }
 
 		//update widgets, if any
@@ -634,7 +631,8 @@ public class TransactionFormFragment extends SherlockFragment implements
 		finish();
 	}
 
-	@Override
+
+    @Override
 	public void onDestroyView() {
 		super.onDestroyView();
 		if (mCursor != null)

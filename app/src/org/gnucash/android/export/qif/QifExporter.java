@@ -15,7 +15,7 @@
  */
 package org.gnucash.android.export.qif;
 
-import org.gnucash.android.db.AccountsDbAdapter;
+import android.database.sqlite.SQLiteDatabase;
 import org.gnucash.android.export.ExportParams;
 import org.gnucash.android.export.Exporter;
 import org.gnucash.android.model.Account;
@@ -27,38 +27,38 @@ import java.util.List;
  * @author Ngewi
  */
 public class QifExporter extends Exporter{
-    boolean mExportAll;
     private List<Account> mAccountsList;
 
     public QifExporter(ExportParams params){
         super(params);
-        this.mExportAll = params.shouldExportAllTransactions();
+    }
+
+    public QifExporter(ExportParams params,  SQLiteDatabase db){
+        super(params, db);
     }
 
     private String generateQIF(){
         StringBuffer qifBuffer = new StringBuffer();
 
-        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
         List<String> exportedTransactions = new ArrayList<String>();
         for (Account account : mAccountsList) {
             if (account.getTransactionCount() == 0)
                 continue;
 
-            qifBuffer.append(account.toQIF(mExportAll, exportedTransactions) + "\n");
+            qifBuffer.append(account.toQIF(mParameters.shouldExportAllTransactions(), exportedTransactions) + "\n");
 
             //mark as exported
-            accountsDbAdapter.markAsExported(account.getUID());
+            mAccountsDbAdapter.markAsExported(account.getUID());
         }
-        accountsDbAdapter.close();
+        mAccountsDbAdapter.close();
 
         return qifBuffer.toString();
     }
 
     @Override
     public String generateExport() throws ExporterException {
-        AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(mContext);
-        mAccountsList = mExportAll ? accountsDbAdapter.getAllAccounts() : accountsDbAdapter.getExportableAccounts();
-        accountsDbAdapter.close();
+        mAccountsList = mParameters.shouldExportAllTransactions() ?
+                mAccountsDbAdapter.getAllAccounts() : mAccountsDbAdapter.getExportableAccounts();
 
         return generateQIF();
     }

@@ -131,7 +131,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         mTransactionsDbAdapter = new TransactionsDbAdapter(getActivity());
         mCursorAdapter = new TransactionsCursorAdapter(
                 getActivity().getApplicationContext(),
-                R.layout.list_item_transaction, null,
+                R.layout.list_item_scheduled_trxn, null,
                 new String[] {DatabaseSchema.TransactionEntry.COLUMN_NAME},
                 new int[] {R.id.primary_text});
         setListAdapter(mCursorAdapter);
@@ -186,7 +186,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         }
         //else
         //TODO: get the account UID using some other means. Or don't display account names at all
-        String accountUID = mTransactionsDbAdapter.getAccountUidFromTransaction(id);
+        String accountUID = mTransactionsDbAdapter.getTransaction(id).getSplits().get(0).getAccountUID();
         long accountID = mTransactionsDbAdapter.getAccountID(accountUID);
 
         openTransactionForEdit(accountID, id);
@@ -389,43 +389,15 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
         @Override
         public void bindView(View view, Context context, Cursor cursor) {
             super.bindView(view, context, cursor);
-            AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(getActivity());
-            //FIXME: Account ID cannot be gotten from transactions anymore. Make this fragment account-agnostic
-            long accountID = accountsDbAdapter.getAccountID(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID)));
 
-            long transactionId = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry._ID));
-            Money amount = mTransactionsDbAdapter.getBalance(transactionId, accountID);
+            Transaction transaction = mTransactionsDbAdapter.buildTransactionInstance(cursor);
             TextView amountTextView = (TextView) view.findViewById(R.id.transaction_amount);
-            TransactionsActivity.displayBalance(amountTextView, amount);
+            amountTextView.setText(transaction.getSplits().size() + " splits");
 
             TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
             trNote.setText("Repeats  " + //TODO: Internationalize "Repeats"
                     getRecurrenceAsString(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_RECURRENCE_PERIOD)))) ;
 
-            String currentAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID));
-            int position = cursor.getPosition();
-            boolean hasSectionHeader;
-
-            if (position == 0){
-                hasSectionHeader = true;
-            } else {
-                cursor.moveToPosition(position - 1);
-                String previousAccountUid = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseSchema.SplitEntry.COLUMN_ACCOUNT_UID));
-                cursor.moveToPosition(position);
-
-                hasSectionHeader = !previousAccountUid.equals(currentAccountUid);
-            }
-
-            TextView dateHeader = (TextView) view.findViewById(R.id.date_section_header);
-
-            if (hasSectionHeader){
-                dateHeader.setText(accountsDbAdapter.getFullyQualifiedAccountName(currentAccountUid));
-                dateHeader.setVisibility(View.VISIBLE);
-            } else {
-                dateHeader.setVisibility(View.GONE);
-            }
-
-            accountsDbAdapter.close();
         }
 
     }
