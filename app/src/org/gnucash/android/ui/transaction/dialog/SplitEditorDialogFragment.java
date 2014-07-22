@@ -30,10 +30,7 @@ import org.gnucash.android.R;
 import org.gnucash.android.db.AccountsDbAdapter;
 import org.gnucash.android.db.DatabaseSchema;
 import org.gnucash.android.db.SplitsDbAdapter;
-import org.gnucash.android.model.AccountType;
-import org.gnucash.android.model.Money;
-import org.gnucash.android.model.Split;
-import org.gnucash.android.model.TransactionType;
+import org.gnucash.android.model.*;
 import org.gnucash.android.ui.UxArgument;
 import org.gnucash.android.ui.transaction.TransactionFormFragment;
 import org.gnucash.android.ui.transaction.TransactionsActivity;
@@ -203,6 +200,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
         });
 
         accountsSpinner.setOnItemSelectedListener(new TypeButtonLabelUpdater(splitTypeButton));
+        updateTransferAccountsList(accountsSpinner);
 
         splitTypeButton.setupCheckedListener(splitAmountEditText, splitCurrencyTextView);
         splitTypeButton.setOnClickListener(new View.OnClickListener() {
@@ -215,17 +213,14 @@ public class SplitEditorDialogFragment extends DialogFragment {
         splitTypeButton.setChecked(mBaseAmount.signum() > 0);
         splitUidTextView.setText(UUID.randomUUID().toString());
 
-        updateTransferAccountsList(accountsSpinner);
-        AccountType accountType = mAccountsDbAdapter.getAccountType(accountsSpinner.getSelectedItemId());
-
         if (split != null) {
-            splitTypeButton.setChecked(split.getAmount().isNegative());
-            setSelectedTransferAccount(mAccountsDbAdapter.getAccountID(split.getAccountUID()), accountsSpinner);
             splitAmountEditText.setText(split.getAmount().toPlainString());
             splitMemoEditText.setText(split.getMemo());
             splitUidTextView.setText(split.getUID());
+
+            setSelectedTransferAccount(mAccountsDbAdapter.getAccountID(split.getAccountUID()), accountsSpinner);
+            splitTypeButton.setChecked(Transaction.shouldDecreaseBalance(splitTypeButton.getAccountType(), split.getType()));
         }
-        splitTypeButton.setAccountType(accountType);
     }
 
     /**
@@ -241,7 +236,7 @@ public class SplitEditorDialogFragment extends DialogFragment {
                     public void run() {
                         accountsSpinner.setSelection(position);
                     }
-                }, 500);
+                }, 100);
                 break;
             }
         }
@@ -361,6 +356,9 @@ public class SplitEditorDialogFragment extends DialogFragment {
         }
     }
 
+    /**
+     * Updates the account type for the TransactionTypeButton when the selected account is changed in the spinner
+     */
     private class TypeButtonLabelUpdater implements AdapterView.OnItemSelectedListener {
         TransactionTypeToggleButton mTypeToggleButton;
 

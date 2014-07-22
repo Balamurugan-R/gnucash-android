@@ -218,9 +218,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
                 Log.i(LOG_TAG, "Upgrading database to version 7");
 
-                //export all formats so that user does not lose data at any cost
-                MigrationHelper.exportDatabase(db, ExportFormat.QIF);
-                MigrationHelper.exportDatabase(db, ExportFormat.OFX);
                 String filepath = MigrationHelper.exportDatabase(db, ExportFormat.GNC_XML);
 
                 dropAllDatabaseTables(db);

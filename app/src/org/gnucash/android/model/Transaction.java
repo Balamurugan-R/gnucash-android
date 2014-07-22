@@ -552,9 +552,7 @@ public class Transaction {
      */
     public String toQIF(String accountUID){
         final String newLine = "\n";
-        //TODO: QIF is properly generated, but GnuCash does not handle the import well for multiple (>2) splits
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
-
         //all transactions are double transactions
         String imbalanceAccountName = QifHelper.getImbalanceAccountName(Currency.getInstance(mCurrencyCode));
 
@@ -563,10 +561,25 @@ public class Transaction {
         transactionQIFBuilder.append(QifHelper.DATE_PREFIX).append(QifHelper.formatDate(mTimestamp)).append(newLine);
         transactionQIFBuilder.append(QifHelper.MEMO_PREFIX).append(mName).append(newLine);
 
-
+        List<String> processedSplitUIDs = new ArrayList<String>();
         final List<Split> splitList = getSplits();
+        if (splitList.size() > 2){
+            for (Split split : splitList) {
+                if (split.getAccountUID().equals(accountUID)){
+                    Money amount = split.getAmount();
+
+                    if (split.getType() == TransactionType.CREDIT)
+                        amount = amount.negate();
+
+                    transactionQIFBuilder.append(QifHelper.AMOUNT_PREFIX).append(amount.toPlainString())
+                            .append(newLine);
+                    processedSplitUIDs.add(split.getUID());
+                    break;
+                }
+            }
+        }
         for (Split split : splitList) {
-            if (split.getAccountUID().equals(accountUID) && splitList.size() <= 2)
+            if (split.getAccountUID().equals(accountUID) || processedSplitUIDs.contains(split.getUID()))
                 continue;
 
             String splitAccountName = accountsDbAdapter.getFullyQualifiedAccountName(split.getAccountUID());
@@ -577,15 +590,23 @@ public class Transaction {
                 transactionQIFBuilder.append(QifHelper.SPLIT_MEMO_PREFIX).append(memo).append(newLine);
             }
             Money amount = split.getAmount();
-//            if (shouldDecreaseBalance(accountsDbAdapter.getAccountType(split.getAccountUID()), split.getType()))
-            if (split.getType() == TransactionType.DEBIT)
-                amount = amount.negate();
-
+            if (split.getAccountUID().equals(accountUID)) {
+                if (split.getType() == TransactionType.CREDIT)
+                    amount = amount.negate();
+            } else {
+                if (split.getType() == TransactionType.DEBIT)
+                    amount = amount.negate();
+            }
             transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(amount.asString()).append(newLine);
         }
         Money imbalanceAmount = getImbalance();
         if (imbalanceAmount.asBigDecimal().compareTo(new BigDecimal(0)) != 0){
-            //add imbalance amounts here
+            AccountType accountType = accountsDbAdapter.getAccountType(accountUID);
+            TransactionType imbalanceType = Transaction.getTypeForBalance(accountType,imbalanceAmount.isNegative());
+            imbalanceAmount = imbalanceAmount.absolute();
+            if (imbalanceType == TransactionType.DEBIT){
+                imbalanceAmount = imbalanceAmount.negate();
+            }
             transactionQIFBuilder.append(QifHelper.SPLIT_CATEGORY_PREFIX).append(imbalanceAccountName).append(newLine);
             transactionQIFBuilder.append(QifHelper.SPLIT_AMOUNT_PREFIX).append(imbalanceAmount.asString()).append(newLine);
         }
@@ -594,23 +615,6 @@ public class Transaction {
 
         accountsDbAdapter.close();
         return transactionQIFBuilder.toString();
-    }
-
-    /**
-     * Searches a list of splits to find a corresponding pair to <code>split</code>.
-     * A split is considered a pair if they have the same amount and opposite transaction types.
-     * This <code>splitList</code> typically contains splits from the same transaction.
-     * @param split {@link Split} for which to find pair
-     * @param splitList List of splits
-     * @return Split which is a pair to the passed in split
-     * */
-    public static Split findPair(Split split, final List<Split> splitList){
-        for (Split splitEntry : splitList) {
-            boolean isPair = split.isPairOf(splitEntry);
-            if (isPair)
-                return splitEntry;
-        }
-        return null;
     }
 
     /**

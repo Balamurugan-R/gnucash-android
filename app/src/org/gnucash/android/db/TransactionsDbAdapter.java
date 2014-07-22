@@ -435,7 +435,7 @@ public class TransactionsDbAdapter extends DatabaseAdapter {
                 new String[]{TransactionEntry._ID, TransactionEntry.COLUMN_NAME},
                 selection,
                 null, null, null,
-                TransactionEntry.COLUMN_NAME);
+                TransactionEntry.COLUMN_NAME + " ASC");
         return c;
     }
 
