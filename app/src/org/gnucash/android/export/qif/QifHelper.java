@@ -80,12 +80,4 @@ public class QifHelper {
         }
     }
 
-    /**
-     * Returns the imbalance account where to store transactions which are not double entry
-     * @param currency Currency of the transaction
-     * @return Imbalance account name
-     */
-    public static String getImbalanceAccountName(Currency currency){
-        return GnuCashApplication.getAppContext().getString(R.string.imbalance_account_name) + "-" + currency.getCurrencyCode();
-    }
 }

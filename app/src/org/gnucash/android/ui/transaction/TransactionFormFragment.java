@@ -311,8 +311,6 @@ public class TransactionFormFragment extends SherlockFragment implements
 	private void initializeViewsWithTransaction(){
 		mNameEditText.setText(mTransaction.getName());
 
-        //FIXME: You need to revisit me when splits are introduced
-        //checking the type button means the amount will be shown as negative (in red) to user
         String accountUID = mAccountsDbAdapter.getAccountUID(mAccountId);
         mTransactionTypeButton.setAccountType(mAccountType);
         mTransactionTypeButton.setChecked(mTransaction.getBalance(accountUID).isNegative());
@@ -591,17 +589,18 @@ public class TransactionFormFragment extends SherlockFragment implements
                 split.setType(mTransactionTypeButton.getTransactionType());
                 mTransaction.addSplit(split);
 
-                long transferAcctId = mDoubleAccountSpinner.getSelectedItemId();
-                String transferAcctUID = mAccountsDbAdapter.getAccountUID(transferAcctId);
+                String transferAcctUID;
                 if (mUseDoubleEntry) {
+                    long transferAcctId = mDoubleAccountSpinner.getSelectedItemId();
+                    transferAcctUID = mAccountsDbAdapter.getAccountUID(transferAcctId);
                     mTransaction.addSplit(split.createPair(transferAcctUID));
+                } else {
+                      //TODO: enable this when we can hide certain accounts from the user
+//                    transferAcctUID = mAccountsDbAdapter.getOrCreateImbalanceAccountUID(currency);
                 }
             } else { //split editor was used to enter splits
                 mTransaction.setSplits(mSplitsList);
             }
-            //TODO: When no double entry is activated, use the imbalance account
-            //this involves creating the imbalance account on demand.
-            // Let's see if we can do without and let GnuCash desktop handle that
 		}
         mTransaction.setCurrencyCode(mAccountsDbAdapter.getCurrencyCode(accountID));
 		mTransaction.setTime(cal.getTimeInMillis());
@@ -609,7 +608,20 @@ public class TransactionFormFragment extends SherlockFragment implements
 
         //save the normal transaction first
         mTransactionsDbAdapter.addTransaction(mTransaction);
+        scheduleRecurringTransaction();
 
+
+        //update widgets, if any
+		WidgetConfigurationActivity.updateAllWidgets(getActivity().getApplicationContext());
+
+		finish();
+	}
+
+    /**
+     * Schedules a recurring transaction (if necessary) after the transaction has been saved
+     * @see #saveNewTransaction()
+     */
+    private void scheduleRecurringTransaction() {
         //set up recurring transaction if requested
         int recurrenceIndex = mRecurringTransactionSpinner.getSelectedItemPosition();
         if (recurrenceIndex != 0) {
@@ -624,12 +636,7 @@ public class TransactionFormFragment extends SherlockFragment implements
             recurringTransaction.setRecurrencePeriod(recurrencePeriodMillis);
             mTransactionsDbAdapter.scheduleTransaction(recurringTransaction);
         }
-
-		//update widgets, if any
-		WidgetConfigurationActivity.updateAllWidgets(getActivity().getApplicationContext());
-
-		finish();
-	}
+    }
 
 
     @Override

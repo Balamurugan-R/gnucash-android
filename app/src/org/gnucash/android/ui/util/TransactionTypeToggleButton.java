@@ -30,7 +30,6 @@ import org.gnucash.android.ui.transaction.TransactionFormFragment;
 /**
  * A special type of {@link android.widget.ToggleButton} which displays the appropriate CREDIT/DEBIT labels for the
  * different account types.
- * //TODO: Localize the label strings
  * @author Ngewi Fet <ngewif@gmail.com>
  */
 public class TransactionTypeToggleButton extends ToggleButton {
@@ -53,43 +52,43 @@ public class TransactionTypeToggleButton extends ToggleButton {
         Context context = getContext().getApplicationContext();
         switch (mAccountType) {
             case CASH:
-                setTextOn("Spend");
-                setTextOff("Receive");
+                setTextOn(context.getString(R.string.label_spend));
+                setTextOff(context.getString(R.string.label_receive));
                 break;
             case BANK:
-                setTextOn("Withdrawal");
-                setTextOff("Deposit");
+                setTextOn(context.getString(R.string.label_withdrawal));
+                setTextOff(context.getString(R.string.label_deposit));
                 break;
             case CREDIT:
-                setTextOn("Payment");
-                setTextOff("Charge");
+                setTextOn(context.getString(R.string.label_payment));
+                setTextOff(context.getString(R.string.label_charge));
                 break;
             case ASSET:
             case EQUITY:
             case LIABILITY:
-                setTextOn("Decrease");
-                setTextOff("Increase");
+                setTextOn(context.getString(R.string.label_decrease));
+                setTextOff(context.getString(R.string.label_increase));
                 break;
             case INCOME:
-                setTextOn("Charge");
-                setTextOff("Income");
+                setTextOn(context.getString(R.string.label_charge));
+                setTextOff(context.getString(R.string.label_income));
                 break;
             case EXPENSE:
-                setTextOn("Rebate");
-                setTextOff("Expense");
+                setTextOn(context.getString(R.string.label_rebate));
+                setTextOff(context.getString(R.string.label_expense));
                 break;
             case PAYABLE:
-                setTextOn("Payment");
-                setTextOff("Bill");
+                setTextOn(context.getString(R.string.label_payment));
+                setTextOff(context.getString(R.string.label_bill));
                 break;
             case RECEIVABLE:
-                setTextOn("Payment");
-                setTextOff("Invoice");
+                setTextOn(context.getString(R.string.label_payment));
+                setTextOff(context.getString(R.string.label_invoice));
                 break;
             case STOCK:
             case MUTUAL:
-                setTextOn("Buy");
-                setTextOff("Sell");
+                setTextOn(context.getString(R.string.label_buy));
+                setTextOff(context.getString(R.string.label_sell));
                 break;
             case CURRENCY:
             case ROOT:
@@ -131,7 +130,8 @@ public class TransactionTypeToggleButton extends ToggleButton {
         private TextView mCurrencyTextView;
         /**
          * Constructor with the amount view
-         * @param amountEditText
+         * @param amountEditText EditText displaying the amount value
+         * @param currencyTextView Currency symbol text view
          */
         public OnTypeChangedListener(EditText amountEditText, TextView currencyTextView){
             this.mAmountEditText = amountEditText;

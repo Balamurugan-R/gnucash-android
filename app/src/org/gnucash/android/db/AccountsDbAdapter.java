@@ -22,6 +22,8 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
+import org.gnucash.android.R;
+import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.model.Account;
 import org.gnucash.android.model.AccountType;
 import org.gnucash.android.model.Money;
@@ -64,6 +66,15 @@ public class AccountsDbAdapter extends DatabaseAdapter {
     public AccountsDbAdapter(SQLiteDatabase db) {
         super(db);
         mTransactionsAdapter = new TransactionsDbAdapter(db);
+    }
+
+    /**
+     * Returns the imbalance account where to store transactions which are not double entry
+     * @param currency Currency of the transaction
+     * @return Imbalance account name
+     */
+    public static String getImbalanceAccountName(Currency currency){
+        return GnuCashApplication.getAppContext().getString(R.string.imbalance_account_name) + "-" + currency.getCurrencyCode();
     }
 
     @Override
@@ -439,7 +450,30 @@ public class AccountsDbAdapter extends DatabaseAdapter {
 		}
 		return accountsList;
 	}
-	
+
+    /**
+     * Retrieves the unique ID of the imbalance account for a particular currency (creates the imbalance account
+     * on demand if necessary)
+     * @param currency Currency for the imbalance account
+     * @return String unique ID of the account
+     */
+    public String getOrCreateImbalanceAccountUID(Currency currency){
+        String imbalanceAccountName = getImbalanceAccountName(currency);
+        Cursor c = mDb.query(AccountEntry.TABLE_NAME, new String[]{AccountEntry.COLUMN_UID},
+                AccountEntry.COLUMN_NAME + "= ?", new String[]{imbalanceAccountName},
+                null, null, null, "1");
+        String uid;
+        if (c != null && c.moveToNext()) {
+            uid = c.getString(c.getColumnIndexOrThrow(AccountEntry.COLUMN_UID));
+        } else {
+            Account account = new Account(imbalanceAccountName, currency);
+            account.setAccountType(AccountType.BANK);
+            addAccount(account);
+            uid = account.getUID();
+        }
+        return uid;
+    }
+
 	/**
 	 * Returns a cursor to all account records in the database.
      * GnuCash ROOT accounts are ignored
@@ -600,7 +634,6 @@ public class AccountsDbAdapter extends DatabaseAdapter {
      * @return Cursor to recently used accounts
      */
     public Cursor fetchRecentAccounts(int numberOfRecents){
-        //TODO: check if this works properly
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
         queryBuilder.setTables(TransactionEntry.TABLE_NAME
                 + " LEFT OUTER JOIN " + SplitEntry.TABLE_NAME + " ON "

@@ -107,7 +107,7 @@ public class ExporterTask extends AsyncTask<ExportParams, Void, Boolean> {
             e.printStackTrace();
             Log.e(TAG, e.getMessage());
             //TODO: Internationalize (and correct ofx specific) error message
-            Toast.makeText(mContext, R.string.error_exporting,
+            Toast.makeText(mContext, R.string.toast_export_error,
                     Toast.LENGTH_LONG).show();
             return false;
         }

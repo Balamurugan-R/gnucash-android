@@ -554,7 +554,7 @@ public class Transaction {
         final String newLine = "\n";
         AccountsDbAdapter accountsDbAdapter = new AccountsDbAdapter(GnuCashApplication.getAppContext());
         //all transactions are double transactions
-        String imbalanceAccountName = QifHelper.getImbalanceAccountName(Currency.getInstance(mCurrencyCode));
+        String imbalanceAccountName = AccountsDbAdapter.getImbalanceAccountName(Currency.getInstance(mCurrencyCode));
 
         StringBuilder transactionQIFBuilder = new StringBuilder();
 

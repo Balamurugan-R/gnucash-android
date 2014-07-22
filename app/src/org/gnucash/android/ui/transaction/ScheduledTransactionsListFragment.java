@@ -184,8 +184,6 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
             checkbox.setChecked(!checkbox.isChecked());
             return;
         }
-        //else
-        //TODO: get the account UID using some other means. Or don't display account names at all
         String accountUID = mTransactionsDbAdapter.getTransaction(id).getSplits().get(0).getAccountUID();
         long accountID = mTransactionsDbAdapter.getAccountID(accountUID);
 
@@ -395,7 +393,7 @@ public class ScheduledTransactionsListFragment extends SherlockListFragment impl
             amountTextView.setText(transaction.getSplits().size() + " splits");
 
             TextView trNote = (TextView) view.findViewById(R.id.secondary_text);
-            trNote.setText("Repeats  " + //TODO: Internationalize "Repeats"
+            trNote.setText(context.getString(R.string.label_repeats) + " " +
                     getRecurrenceAsString(cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseSchema.TransactionEntry.COLUMN_RECURRENCE_PERIOD)))) ;
 
         }

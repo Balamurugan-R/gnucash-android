@@ -549,7 +549,6 @@ public class Account {
      * @return QIF representation of the account information
      */
     public String toQIF(boolean exportAllTransactions, List<String> exportedTransactionUIDs) {
-        //TODO: Fix QIF export
         StringBuilder accountQIFBuilder = new StringBuilder();
         final String newLine = "\n";
 
